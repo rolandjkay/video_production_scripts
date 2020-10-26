@@ -75,6 +75,11 @@ for input_filename in input_filenames:
                                      '-c', 'copy',
                                      os.path.join(path, stub + ".MP4")])
 
+        try:
+            os.remove(list_filename)
+        except Exception:
+            pass
+
         if returncode != 0:
             print("Failed to concatenate " + stub + ".MP4")
             failed_filenames.append(input_filename)
