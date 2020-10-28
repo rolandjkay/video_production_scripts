@@ -27,7 +27,7 @@ for input_filename in input_filenames:
         failed_filenames.append(input_filename)
     else:
         stub = m.group(1)
-        subfile_index = int(m.group(3))
+        #subfile_index = int(m.group(3))
 
         # Map a filename to None, if it is not a subpart with stub 'stub'
         # Otherwise, map to the stub index.
@@ -43,7 +43,7 @@ for input_filename in input_filenames:
         # Search for the last sub-file.
         available_sub_parts = set(filter(None, 
                                          [ name_to_subpart(candidate) 
-                                           for candidate in os.listdir(path)]))
+                                           for candidate in os.listdir(path if path else ".")]))
         num_sub_parts = max(available_sub_parts) 
 
         wanted_sub_parts = set(range(1, max(available_sub_parts) + 1))
