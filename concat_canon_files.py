@@ -12,19 +12,22 @@ input_filenames = sys.argv[1:]
 failed_filenames = []
 
 if not input_filenames:
-    return;
+    exit()
+
+# Parse first filename to path / filename . extension
+path, filename = os.path.split(input_filenames[0])
 
 # Write out a file containing sub-part names
-list_filename = os.path.join(path, "___mylist_" + uuid.uuid4() + ".txt")
+list_filename = os.path.join(path, "___mylist_" + str(uuid.uuid4()) + ".txt")
 with open(list_filename, "w") as list_file:
     for input_filename in input_filenames:
         print("file '%s'" % input_filename, file = list_file)
 
-# Parse first filename to path / filename . extension
-path, filename = os.path.split(input_filename[0])
-
  # Call ffmpeg to concatenate files.
-print(['ffmpeg', '-f', 'concat', '-safe', '0', '-i', list_filename, '-c', 'copy', os.path.join(path, stub + ".MP4")])
+print(['ffmpeg', '-f', 'concat', 
+                 '-safe', '0', 
+                 '-i', list_filename, 
+                 '-c', 'copy', os.path.join(path,"FULL_" + filename )])
 returncode = call(['ffmpeg', '-f', 'concat', 
                              '-safe', '0', 
                              '-i', list_filename, 
@@ -36,6 +39,22 @@ except Exception:
     pass
 
 if returncode != 0:
-    printf("ffmpeg failed.", file = std.stderr);
+    print("ffmpeg failed.", file = sys.stderr);
+else:
+    print("ffmpeg succeeded.", file = sys.stderr);
+
+    # Move sub-parts into sub-dirs
+    #
+    subparts_path = os.path.join(path, "canon_subparts")
+    try:
+        os.mkdir(subparts_path)
+    except FileExistsError:
+        pass
+
+    for input_filename in input_filenames:
+       try:
+           shutil.move(os.path.join(path, input_filename), subparts_path)
+       except Exception:
+           pass
 
 

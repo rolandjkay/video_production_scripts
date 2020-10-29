@@ -59,12 +59,16 @@ def extract_timecode_data(filename):
 
     # Convert filename to Windows path
 
-    result = run(['ltcdump', filename, "-j"], capture_output = True) 
+    command = ['ltcdump', filename, "-j"]
+
+    result = run(command, capture_output = True) 
 
     try:
         ltc_reader_output = json.loads(result.stdout)
     except json.decoder.JSONDecodeError as e:
         print("Error parsing JSON output from ltcdump:")
+        print()
+        print("Command: " + " ".join(command))
         print()
         print(e.doc)
         print()

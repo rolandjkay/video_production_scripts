@@ -1,10 +1,5 @@
 #! /usr/bin/env python
-"""Concatenate DJI osmo files together
-
-This Python scripts calls is designed to work with video clips in which one audio channel contains
-timecode as an audio track and the other the camera audio. We strip out the timecode audio and
-use it to relabel the starting timecode of the video clip. Finally, we remux the camera audio
-track with the video track to yield a video clip with a mono audio track.
+"""Concatenate DJI Osmo files together
 
 """
 from subprocess import call, run
