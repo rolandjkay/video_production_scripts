@@ -9,6 +9,8 @@ ARGS=$(getopt -a --options hls:r: --long "high,low,start:,rate:" -- "$@")
  
 eval set -- "$ARGS"
 
+echo "FOO" $@ "BAR"
+
 start="1"
 export_prores=""
 export_h264=""
@@ -20,11 +22,11 @@ while true; do
     -h|--high)
       export_prores="YES"
       echo "Exporting ProRes 4444"
-      shift 2;;
+      shift 1;;
     -l|--low)
       export_h264="YES"
       echo "Exporting H264"
-      shift 2;;
+      shift 1;;
     -s|--start)
       start_frame="$2"
       echo "Starting at frame: " $2
