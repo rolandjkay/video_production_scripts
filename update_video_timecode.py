@@ -72,6 +72,9 @@ def read_video_start_timecode(filename):
                    '-of', 'default=noprint_wrappers=1',
                    filename,
                    '-v', 'error'], capture_output = True)
+    
+    if result.returncode != 0:
+        raise SystemError("Failed to read timecode from " + filename)
 
     first_line = result.stdout.decode("utf-8").split("\n")[0]
     m = re.match("TAG:timecode=([0-9]{2}):([0-9]{2}):([0-9]{2}):([0-9]{2})", first_line)
@@ -108,15 +111,20 @@ audio_ref_timecode = Timecode.from_str(args.audio_ref_timecode)
 ## Do the work
 ##
 
-video_start_timecode = read_video_start_timecode(video_filename)
+try:
+    video_start_timecode = read_video_start_timecode(video_filename)
+    
+    # Use reference timecode to calculate difference between video 
+    # and audio timecodes.
+    diff = calc_tc_diff(audio_ref_timecode, video_ref_timecode)
+    
+    # Apply difference to video start time code
+    new_video_start_timecode = apply_tc_diff(video_start_timecode, diff)
+    
+    status = run(['ffmpeg', '-i', video_filename, 
+                            '-c', 'copy', 
+                            '-timecode', str(new_video_start_timecode), output_filename ])
+except Exception as e:
+    print("FAILED: " + str(e))
 
-# Use reference timecode to calculate difference between video 
-# and audio timecodes.
-diff = calc_tc_diff(audio_ref_timecode, video_ref_timecode)
 
-# Apply difference to video start time code
-new_video_start_timecode = apply_tc_diff(video_start_timecode, diff)
-
-status = run(['ffmpeg', '-i', video_filename, 
-                        '-c', 'copy', 
-                        '-timecode', str(new_video_start_timecode), output_filename ])
