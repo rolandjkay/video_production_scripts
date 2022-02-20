@@ -125,6 +125,16 @@ bpy.context.scene.render.engine = {"EEVEE": "BLENDER_EEVEE", "WORKBENCH": "BLEND
 # Cycles settings
 bpy.context.scene.cycles.samples = shot_info.get("max_cycles_samples", [256, 1024, 4096])[quality_index] 
 bpy.context.scene.cycles.use_denoising = parse_boolean(shot_info.get("use_denoising", False))
+bpy.context.scene.cycles.device = shot_info.get("rendering_device", 'GPU') 
+bpy.context.scene.cycles.use_animated_seed = True
+
+# Enable denoise data, vector and mist passes for all render layers.
+if shot_info.get("enable_all_layers", False):
+    for layer_name in bpy.context.scene.view_layers.keys():
+        bpy.context.scene.view_layers[layer_name].cycles.denoising_store_passes = True
+        bpy.context.scene.view_layers[layer_name].use_pass_vector = True
+        bpy.context.scene.view_layers[layer_name].use_pass_mist = True
+
 
 # Object to hide in render
 objects_to_hide = shot_info.get("objects_to_hide", [])
