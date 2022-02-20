@@ -55,7 +55,7 @@ def find_next_slate_number(path):
 # We need to be able to set these up using Python code to point to the correct source
 # images. I'm starting to gather the code to do this here.
 #
-def setup_compositor(src_path, src_filename_stub, src_filename_ext frame_start, frame_end):
+def setup_compositor(src_path, src_filename_stub, src_filename_ext, frame_start, frame_end):
 
     # First we have to load the source image sequence into Blender's data object tree
     result = bpy.ops.image.open(
