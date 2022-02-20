@@ -48,6 +48,35 @@ def find_next_slate_number(path):
         # exist, then this is the first render, so the slate number is 1.
         return 1
 
+
+#
+# We are going to need to make blender files which contain compositing "recipes"; i.e
+# a node setup that does basic operations like denoising, or adding distortion.
+# We need to be able to set these up using Python code to point to the correct source
+# images. I'm starting to gather the code to do this here.
+#
+def setup_compositor(src_path, src_filename_stub, src_filename_ext frame_start, frame_end):
+
+    # First we have to load the source image sequence into Blender's data object tree
+    result = bpy.ops.image.open(
+                            filepath=os.path.join(src_path, (src_filename_stub + "%04d" % frame_start),
+                            directory=src_path, 
+                            files=[ {"name": src_filename_stub + ("%04d" % i) + src_filename_ext} 
+                                    for i in range(frame_start, frame_end + 1)
+                                  ], 
+                            show_multiview=False)
+                        )
+
+    if result != {'FINISHED'}:
+        raise FileNotFoundError("Failed to load source image sequence for composition")
+
+    # We expect the compositor node setup to have an Image Sequenece node called "Source Image"
+    try:
+        bpy.data.scenes["Scene"].node_tree.nodes["Source Image"].image
+    except KeyError as e:
+        raise ValueError("Compositor missing 'Source Image' node.")
+
+
 # Parse command line
 #
 argv = sys.argv
@@ -67,7 +96,7 @@ else:
 #
 #    "max_cycles_samples": [128, 1024, 4096], 
 #
-quality_index = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}.get(quality.upper(), 2)
+quality_index = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "FINAL": 3}.get(quality.upper(), 3)
 
 shot_list_db = shot_list_db.ShotListDb.from_file(shot_list_db_filepath)
 
