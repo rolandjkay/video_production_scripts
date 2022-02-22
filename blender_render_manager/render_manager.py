@@ -107,10 +107,48 @@ def build_shot(shot_list_db, shot_category, shot_id, quality):
 
     print("Returned Value: ", res)
 
-def main():
-    cmd_name = sys.argv.pop(0) # Discard command name
+IMAGE_FILE_EXTENSIONS = {
+    "PNG": ".png",
+    'OPEN_EXR_MULTILAYER': ".exr",
+    'OPEN_EXR': ".exr",
+    "TIFF": ".tiff",
+    "JPEG": ".jpeg",
+    "JPEG2000": ".jpeg"
+}
+
+def verify_shot(shot_list_db, shot_category, shot_id, quality):
+    ### XXX We have the same code in render_script.py :/
+
+    # Use output path override given in the shot list, if given. Otherwise, fallback on eg. Renders/Title/slate_3/...
+    if shot_info.get("output_filepath_override"):
+        bpy.context.scene.render.filepath = shot_info.get("output_filepath_override")
+    else:
+        output_path_base =  os.path.join(shot_list_db.render_root, shot_info["title"])
+
+        if slate_number is None:
+            slate_number = find_next_slate_number(output_path_base)
+
+    filename =  shot_category + "_" + shot_id + "_" + slate_number + "_"
+    render_path = os.path.join(output_path_base, "slate_%d/" % slate_number) + filename
+
+    ### If the frame range isn't specified, all we can do is check for at least one frame.
+    if 'frame_start' in shot_info and 'frame_end' in shot_info:
+        for frame in range(shot_info.frame_start, shot_info.frame_end):
+
+            ext = IMAGE_FILE_EXTENSIONS[shot_info.get("output_file_format", "PNG")]
+            filename = "%04d" % frame + ext
+            if not os.path.exists(os.path.join(render_path, filename)):
+                return False
+        return True
+    else:
+        return len(os.listdir(render_path)) > 0
+
+
+
+def main(*args):
+    cmd_name = args.pop(0) # Discard command name
     try:
-        command = sys.argv.pop(0).upper()
+        command = args.pop(0).upper()
     except IndexError:
         print("Nothing to do")
         return
@@ -135,9 +173,10 @@ def main():
         print("Usage:", "render_manager.py", "[LIST|BUILD]")
         
 
-try:
-    main()
-except Exception:
-    logging.exception("Quitting")
+if __name__ == '__main__':
+    try:
+        main(sys.argv)
+    except Exception:
+        logging.exception("Quitting")
 
-input("Press [ENTER] to quit")
+    input("Press [ENTER] to quit")
