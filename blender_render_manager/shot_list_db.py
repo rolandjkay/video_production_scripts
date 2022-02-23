@@ -18,6 +18,7 @@ class ShotListDb:
        except Exception as e:
            raise IOError("Failed to read shot list") from e
 
+    def __init__(self, db):
        # Check that we have "project_root" and "render_root"
        if "project_root" not in db:
            raise ValueError("Shot list db '%s' missing 'project_root' key." % filepath)
@@ -25,8 +26,6 @@ class ShotListDb:
        if "render_root" not in db:
            raise ValueError("Shot list db '%s' missing 'render_root' key." % filepath)
 
-
-    def __init__(self, db):
         self._db = db
 
     @property
