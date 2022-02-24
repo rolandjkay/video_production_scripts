@@ -96,6 +96,9 @@ def client_request_handler(render_queue_state):
 
 _Shot = collections.namedtuple("_Shot", "category,id,slate")
 
+def shot_to_str(shot):
+    return str(shot.category) + "/" + str(shot.id) + "/" + str(shot.slate)
+
 class RenderQueue:
     Shot = _Shot
 
@@ -160,11 +163,15 @@ def queue_processor(render_queue_state, current_shot_as_lst):
     import render_manager
     import time
 
+    logging.info("Starting render queue")
+    logging.info("*********************")
+
     # Convert from shared Python primatives to Python object wrappers.
     render_queue = RenderQueue.from_state(render_queue_state)
     current_shot = RenderQueue.Shot(*current_shot_as_lst) # XXX This is, in fact, copying the data, which could be an issue.
 
     if len(render_queue.shots) == 0:
+        logging.info("Queue empty; quitting")
         exit()
 
     # XXX Could be neater. It's a shame we have to do this here.
@@ -187,11 +194,14 @@ def queue_processor(render_queue_state, current_shot_as_lst):
                                                         render_queue.quality, 
                                                         current_shot.slate)
         if not is_render_complete:
+            logging.info("Shot \""+ shot_to_str(current_shot) + "\" not rendered; launching Blender...")
             render_manager.build_shot(shot_list_db, current_shot.category,
                                                     current_shot.id, 
                                                     render_queue.quality, 
                                                     current_shot.slate)
         else:
+            logging.info("Shot \"" + shot_to_str(current_shot) + "\" already built; trying next shot...")
+
             try:
                 index = [ i for (i, shot) in enumerate(render_queue.shots) 
                               if shot.category == current_shot.category
@@ -199,18 +209,20 @@ def queue_processor(render_queue_state, current_shot_as_lst):
                                  and shot.slate == current_shot.slate][0]
             except IndexError:
                 # Shot doesn't exist; so start again from the top
-                logging.info("Shot \"" + str(shot) + "\" missing from render queue; starting again from first shot")
+                logging.info("Shot \"" + shot_to_str(current_shot) + "\" missing from render queue; starting again from first shot")
                 index = -1
 
             try:
                 current_shot = render_queue.shots[index+1]
             except IndexError:
-                logging.info("Shot \"" + str(current_shot) + "\" is the only one in the queue")
+                logging.info("Shot \"" + shot_to_str(current_shot) + "\" is the last in the queue")
 
                 # Sleep 30 seconds at the end of the queue, just to avoid going round in a hard
                 # loop if all the shots have been built.
+                logging.info("Sleeping for 30 seconds...")
                 time.sleep(30)
 
+        logging.info("Sleeping for 5 seconds...")
         time.sleep(5)
 
 if __name__ == '__main__':
