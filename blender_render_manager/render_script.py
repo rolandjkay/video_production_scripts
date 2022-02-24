@@ -168,6 +168,7 @@ if shot_info.get("enable_all_layers", False):
         bpy.context.scene.view_layers[layer_name].cycles.denoising_store_passes = True
         bpy.context.scene.view_layers[layer_name].use_pass_vector = True
         bpy.context.scene.view_layers[layer_name].use_pass_mist = True
+        bpy.context.scene.view_layers[layer_name].use_pass_z = True
 
 
 # Object to hide in render
