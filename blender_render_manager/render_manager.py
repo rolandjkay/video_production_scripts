@@ -10,7 +10,9 @@ import os
 import logging
 import subprocess
 import copy
+
 from shot_list_db import ShotListDb, print_table
+
 
 SHOT_LIST_FILEPATH = "blender_shot_list.json"
 BLENDER_ROOT = r"C:\Program Files\Blender Foundation\Blender 3.0"
@@ -76,7 +78,7 @@ def find_latest_blend_file(filepath):
         return filepath.replace('[X]', str(max_index))
 
 
-def build_shot(shot_list_db, shot_category, shot_id, quality):
+def build_shot(shot_list_db, shot_category, shot_id, quality, slate):
     shot_info = shot_list_db.get_shot_info(shot_category, shot_id)
 
     # Look up the blend file pattern from the shot list db and resolve to an actual file.
@@ -93,9 +95,10 @@ def build_shot(shot_list_db, shot_category, shot_id, quality):
                           "--python", '"' + os.path.join(render_manager_py_path, RENDER_SCRIPT) + '"', 
                           "--",
                           SHOT_LIST_FILEPATH,
-                          shot_category,
-                          shot_id,
-                          quality])
+                          str(shot_category),
+                          str(shot_id),
+                          quality,
+                          str(slate)])
 
     print("Launching blender")
     print("#################")
@@ -116,8 +119,9 @@ IMAGE_FILE_EXTENSIONS = {
     "JPEG2000": ".jpeg"
 }
 
-def verify_shot(shot_list_db, shot_category, shot_id, quality):
+def verify_shot(shot_list_db, shot_category, shot_id, quality, slate):
     ### XXX We have the same code in render_script.py :/
+    shot_info = shot_list_db.get_shot_info(shot_category, shot_id)
 
     # Use output path override given in the shot list, if given. Otherwise, fallback on eg. Renders/Title/slate_3/...
     if shot_info.get("output_filepath_override"):
@@ -125,19 +129,19 @@ def verify_shot(shot_list_db, shot_category, shot_id, quality):
     else:
         output_path_base =  os.path.join(shot_list_db.render_root, shot_info["title"])
 
-        if slate_number is None:
-            slate_number = find_next_slate_number(output_path_base)
+        if slate is None:
+            slate = find_next_slate_number(output_path_base)
 
-    filename =  shot_category + "_" + shot_id + "_" + slate_number + "_"
-    render_path = os.path.join(output_path_base, "slate_%d/" % slate_number) + filename
+    filename =  str(shot_category) + "_" + str(shot_id) + "_" + str(slate) + "_"
+    render_path = os.path.join(output_path_base, "slate_%d\\" % slate) + filename
 
     ### If the frame range isn't specified, all we can do is check for at least one frame.
     if 'frame_start' in shot_info and 'frame_end' in shot_info:
-        for frame in range(shot_info.frame_start, shot_info.frame_end):
-
-            ext = IMAGE_FILE_EXTENSIONS[shot_info.get("output_file_format", "PNG")]
+        ext = IMAGE_FILE_EXTENSIONS[shot_info.get("output_file_format", "PNG")]
+        
+        for frame in range(shot_info["frame_start"], shot_info["frame_end"]):
             filename = "%04d" % frame + ext
-            if not os.path.exists(os.path.join(render_path, filename)):
+            if not os.path.exists(render_path + filename):
                 return False
         return True
     else:

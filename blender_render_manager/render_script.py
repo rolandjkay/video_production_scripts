@@ -145,7 +145,7 @@ else:
 
 
     filename =  shot_category + "_" + shot_id + "_" + slate_number + "_"
-    bpy.context.scene.render.filepath = os.path.join(output_path_base, "slate_%d/" % slate_number) + filename 
+    bpy.context.scene.render.filepath = os.path.join(output_path_base, "slate_%s/" % str(slate_number)) + filename 
 
 
 # Map EEVEE -> BLENDER_EEVEE and WORKBENCH -> BLENDER_WORKBENCH. Otherwise, use whatever was specified in the shot list.

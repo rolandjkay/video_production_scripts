@@ -26,7 +26,7 @@ class ShotListDb:
        if "render_root" not in db:
            raise ValueError("Shot list db '%s' missing 'render_root' key." % filepath)
 
-        self._db = db
+       self._db = db
 
     @property
     def project_root(self):
