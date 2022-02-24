@@ -19,6 +19,7 @@ import logging
 import json
 import collections
 import time
+import os
 
 logging.basicConfig(level=logging.INFO)
 
@@ -102,21 +103,17 @@ def shot_to_str(shot):
 class RenderQueue:
     Shot = _Shot
 
-    @classmethod
-    def from_file(cls, manager, filepath):
-        """Load the RenderQuene from a file
-
-        manager:  A multiprocessing.Manager instance used to create the
-                  shared state of the queue 
-        """
+    @staticmethod
+    def read_json_file(filepath):
         try:
             with open(filepath, "r") as file:
-                return cls.from_db(manager, json.load(file))
+                return json.load(file)
         except Exception as e:
             raise IOError("Failed to read render queue file") from e
 
-    @classmethod
-    def from_db(cls, manager, db):
+
+    @staticmethod
+    def init_state_from_db(state, db):
         # Check that we have "quality" and "shots"
         if "quality" not in db:
             raise ValueError("Render queue file '%s' missing 'quality' key.")
@@ -125,12 +122,32 @@ class RenderQueue:
             raise ValueError("Render queue file '%s' missing 'shots' key.")
 
         """Create an instace of RenderQueue from a dict loaded from JSON"""
-        state = manager.dict()
         state["quality"] = db["quality"]
         state["shots"] = [
             RenderQueue.Shot(shot["category"], shot["id"], shot["slate"])
             for shot in db["shots"]
         ]
+
+    @classmethod
+    def from_file(cls, manager, filepath):
+        """Load the RenderQuene from a file
+
+        manager:  A multiprocessing.Manager instance used to create the
+                  shared state of the queue 
+        """
+        return cls.from_db(manager, 
+                           cls.read_json_file(filepath),
+                           filepath,
+                           os.stat(filepath).st_mtime)
+
+    @classmethod
+    def from_db(cls, manager, db, filepath = None, file_timestamp = None):
+        """Create an instace of RenderQueue from a dict loaded from JSON"""
+
+        state = manager.dict()
+        cls.init_state_from_db(state, db)
+        state["filepath"] = filepath
+        state["file_timestamp"] = file_timestamp
 
         return cls.from_state(state)
 
@@ -140,6 +157,21 @@ class RenderQueue:
 
     def __init__(self, state):
         self._state = state
+
+    def refresh(self):
+        """Poll the source file and update if necessary"""
+
+        # Don't do anything if we weren't loaded from a file.
+        if self.state["filepath"] is not None:
+            timestamp = os.stat(self.state["filepath"]).st_mtime
+            if timestamp != self.state["file_timestamp"]:
+                logging.info("Change detected; reloading render queue...")
+                try:
+                    self.init_state_from_db(self.state, self.read_json_file(self.state["filepath"]))
+                    self.state["file_timestamp"] = timestamp
+                    logging.info("Reload successful")
+                except Exception:
+                    logging.exception("Reload FAILED.")
 
     @property
     def quality(self):
@@ -222,8 +254,19 @@ def queue_processor(render_queue_state, current_shot_as_lst):
                 logging.info("Sleeping for 30 seconds...")
                 time.sleep(30)
 
+        # Check for changes in the render queue file.
+        render_queue.refresh()
+
         logging.info("Sleeping for 5 seconds...")
         time.sleep(5)
+
+#
+# Note that we wrote this as a multi-processing script, so that one thread could
+# listen to client requests and the other run the queue. But, in the end, we
+# don't really need to listen to client requests; but, we might in the future,
+# and, if we ever get two GPUs, we will need multiprocessing, so we leave
+# it like that for now.
+#
 
 if __name__ == '__main__':
     with Manager() as manager:
