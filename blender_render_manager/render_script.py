@@ -76,6 +76,9 @@ def setup_compositor(src_path, src_filename_stub, src_filename_ext, frame_start,
     except KeyError as e:
         raise ValueError("Compositor missing 'Source Image' node.")
 
+    # XXX Need to set frame start and end, and output file resolution to match the source footage
+    # and set the output path.
+
 
 # Parse command line
 #
@@ -131,6 +134,7 @@ bpy.context.scene.render.resolution_x = parse_resolution_string(shot_info.get("t
 bpy.context.scene.render.resolution_y = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[1];
 bpy.context.scene.render.image_settings.file_format = shot_info.get("output_file_format", "PNG")
 bpy.context.scene.render.image_settings.color_mode = shot_info.get("output_color_mode", 'RGBA')
+bpy.context.scene.render.image_settings.color_depth = shot_info.get("output_color_depth", 16)
 bpy.context.scene.render.use_overwrite = False
 bpy.context.scene.render.use_placeholder = False
 
