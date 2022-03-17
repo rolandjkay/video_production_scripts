@@ -2,7 +2,7 @@
 
 To test:
 
-"C:\Program Files\Blender Foundation\Blender 3.0\blender" -b "D:\Assets\Models\Mine\compositor recipes\defaullt_compositor_chain.blend" --python compositor_script.py -- "D:\Projects\Sitting Duck\Blender\blender_shot_list.json" film 1 1 "D:\Projects\Sitting Duck\Blender\Renders\Opening shot\slate1_composite" .png
+"C:\Program Files\Blender Foundation\Blender 3.0\blender" -b "D:\Assets\Models\Mine\compositor recipes\defaullt_compositor_chain.blend" --python compositor_script.py -- "D:\Projects\Sitting Duck\Blender\blender_shot_list.json" film 1 1 .png
 
 
 """
@@ -24,8 +24,8 @@ import shot_list_db
 
 # XXX Duplicated with render_manager.py
 IMAGE_FILE_EXTENSIONS = {
-    "OPEN_EXR_MULTILAYER": ".EXR",
-    "PNG": ".PNG",
+    "OPEN_EXR_MULTILAYER": "EXR",
+    "PNG": "PNG",
 }
 
 # DEFAULT_COMPOSITOR_CHAIN_BLEND_FILE = "D:\\Assets\\Models\\Mine\\compositor recipes\\default_compositor_chain.blend"
@@ -178,8 +178,8 @@ argv = sys.argv
 argv = argv[argv.index("--") + 1:]  # get all args after "--"
 
 print(len(argv))
-if len(argv) == 6:
-    [shot_list_db_filepath, shot_category, shot_id, slate_number, outgoing_filestub, outgoing_file_extension] = argv
+if len(argv) == 5:
+    [shot_list_db_filepath, shot_category, shot_id, slate_number, outgoing_file_extension] = argv
 else:
     raise ValueError("Not enough command line parameters supplied to compositor_script.py")
 
@@ -211,6 +211,8 @@ else:
 incoming_file_format = shot_list_db.get_shot_info(shot_category, shot_id).get("output_file_format", "PNG")
 incoming_file_extension = IMAGE_FILE_EXTENSIONS[incoming_file_format]
 
+outgoing_filestub = os.path.join(output_path_base, "slate_%s_composite/" % str(slate_number)) + filename 
+
 ##
 ## Setup the nodes in the compositor chain.
 ##
@@ -219,14 +221,14 @@ if compositor_chain_db:
     configure_compositor_chain(compositor_chain_db)
 
 ##
-## Set and render settings
+## Set render settings
 ##
 bpy.context.scene.render.engine = 'CYCLES'
 
 ##
 ## Some helper functions
 ##
-frame_filepath = lambda filestub, file_extension, frame_number: filestub + ("%04d" % frame_number) + file_extension
+frame_filepath = lambda filestub, file_extension, frame_number: filestub + ("%04d" % frame_number) + "." + file_extension
 incoming_frame_filepath = functools.partial(frame_filepath, incoming_filestub, incoming_file_extension)
 outgoing_frame_filepath = functools.partial(frame_filepath, outgoing_filestub, outgoing_file_extension)
 
@@ -238,11 +240,11 @@ def composite_frame(frame_number):
     setup_compositor_source_image(incoming_frame_filepath(frame_number))
 
     ## Set output
-    bpy.context.scene.render.filepath = outgoing_frame_filepath(frame_number)
+    bpy.context.scene.render.filepath = outgoing_filestub
 
     bpy.context.scene.frame_start = frame_number
     bpy.context.scene.frame_end = frame_number
-    bpy.ops.render.render(animation=False)
+    bpy.ops.render.render(animation=True)
 
 
 ##
