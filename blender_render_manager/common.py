@@ -1,7 +1,6 @@
 """Common Code
 
 """
-import bpy
 
 IMAGE_FILE_EXTENSIONS = {
     "PNG": "png",
@@ -58,6 +57,8 @@ def print_table(table):
 
 
 def set_render_resolution(shot_info, quality):
+    import bpy
+    
     """Set Blender's render resolution to match that specified in 'shot_info'"""
     quality_index = get_quality_index(quality)
 

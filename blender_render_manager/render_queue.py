@@ -75,7 +75,7 @@ def handle_connection(conn, render_queue):
 
 # familycould be 'AF_INET': TCP
 #                'AF_UNIX': Unix domain socket
-# ...............'AF_PIPE': Windows named pipe
+#                'AF_PIPE': Windows named pipe
 address = r"\\.\pipe\RenderQ"
 
 def client_request_handler(render_queue_state):
@@ -191,6 +191,7 @@ class RenderQueue:
 ### Process the queue
 ###
 
+# This is the main function of the render sub-process
 def queue_processor(render_queue_state, current_shot_as_lst):
     import render_manager
     import time

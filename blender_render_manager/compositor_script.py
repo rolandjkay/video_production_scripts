@@ -215,6 +215,7 @@ if compositor_chain_db:
 ## Set render settings
 ##
 bpy.context.scene.render.engine = 'CYCLES'
+bpy.context.scene.cycles.device = 'CPU'
 set_render_resolution(shot_info, quality)
 bpy.context.scene.render.image_settings.file_format = shot_info.get("composite_file_format", "PNG")
 bpy.context.scene.render.image_settings.color_mode = shot_info.get("composite_color_mode", 'RGBA')

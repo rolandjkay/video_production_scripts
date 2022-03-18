@@ -18,6 +18,7 @@ from common import *
 SHOT_LIST_FILEPATH = "blender_shot_list.json"
 BLENDER_ROOT = r"C:\Program Files\Blender Foundation\Blender 3.0"
 RENDER_SCRIPT = "render_script.py"
+COMPOSITOR_SCRIPT = "compositor_script.py"
 
 # Find the directory where this file (render_manager.py) resides
 # NOTE: This will break if os.chdir() is called before this line runs
@@ -111,6 +112,35 @@ def build_shot(shot_list_db, shot_category, shot_id, quality, slate):
 
     print("Returned Value: ", res)
 
+
+def composite_shot(shot_list_db, shot_category, shot_id, quality, slate):
+    shot_info = shot_list_db.get_shot_info(shot_category, shot_id)
+
+    # Look up the blend file pattern from the shot list db and resolve to an actual file.
+    #
+
+    DEFAULT_COMPOSITOR_CHAIN = "D:\\Assets\\Models\\Mine\\compositor recipes"
+
+    compositor_cmd = " ".join(['"' + os.path.join(BLENDER_ROOT, "blender") + '"', 
+                            "-b", '"' + DEFAULT_COMPOSITOR_CHAIN + '"', 
+                            "--python", '"' + os.path.join(render_manager_py_path, COMPOSITOR_SCRIPT) + '"', 
+                            "--",
+                            SHOT_LIST_FILEPATH,
+                            str(shot_category),
+                            str(shot_id),
+                            quality,
+                            str(slate)])
+
+    print("Launching blender")
+    print("#################")
+    print()
+    print(compositor_cmd)
+    print()
+
+    res = subprocess.call(compositor_cmd, shell = True)
+
+    print("Returned Value: ", res)
+
 #IMAGE_FILE_EXTENSIONS = {
 #    "PNG": "png",
 #    'OPEN_EXR_MULTILAYER': "exr",
@@ -150,10 +180,12 @@ def verify_shot(shot_list_db, shot_category, shot_id, quality, slate):
 
 
 
-def main(*args):
-    cmd_name = args.pop(0) # Discard command name
+def main(*_args):
+    args = list(_args)
+
     try:
-        command = args.pop(0).upper()
+        cmd_name = args.pop(0) # Discard command name
+        command = args.pop(0)
     except IndexError:
         print("Nothing to do")
         return
@@ -164,15 +196,30 @@ def main(*args):
         list_shots(shot_list_db)
     elif command == "BUILD":
         try:
-            [shot_category, shot_id, quality] = sys.argv
+            [shot_category, shot_id, quality] = args
 
             if quality.upper() not in ["LOW", "MEDIUM", "HIGH"]:
                 raise ValueError
         except ValueError:
-            print("Usage:", "render_manager.py", "BUILD", "<category>", "<id>", "<quality: LOW|MEDIUM|HIGH>", "[slate number]") 
+            print("Usage:", "render_manager.py", "BUILD", "<category>", "<id>", "<quality: LOW|MEDIUM|HIGH|FINAL>", "[slate number]") 
             return
          
         build_shot(shot_list_db, shot_category, shot_id, quality) 
+    elif command == "COMPOSITE":
+        try:
+            if len(args) == 3:
+                [shot_category, shot_id, quality] = args
+                slate_number = None
+            elif len(args == 4):
+                [shot_category, shot_id, quality, slate_number] = args
+
+            if quality.upper() not in ["LOW", "MEDIUM", "HIGH"]:
+                raise ValueError
+        except ValueError:
+            print("Usage:", "render_manager.py", "COMPOSITE", "<category>", "<id>", "<quality: LOW|MEDIUM|HIGH|FINAL>", "[slate number]") 
+            return
+         
+        composite_shot(shot_list_db, shot_category, shot_id, quality, slate_number) 
     else:
         print("Unknown command:", command)
         print("Usage:", "render_manager.py", "[LIST|BUILD]")
@@ -180,7 +227,7 @@ def main(*args):
 
 if __name__ == '__main__':
     try:
-        main(sys.argv)
+        main(*sys.argv)
     except Exception:
         logging.exception("Quitting")
 
