@@ -100,31 +100,3 @@ class ShotListDb:
         else:
             return blend_file
 
-
-# Kept here, as this is a convenient place for shared code!
-#
-#
-def print_table(table):
-    column_widths = [0] * len(table[0])
-
-    def elementwise_max(lst1, lst2):
-        return [ max(x,y) for (x,y) in zip(lst1, lst2)]
-
-    for row in table:
-        widths = [ len(str(x)) for x in row]
-
-        if len(widths) != len(column_widths):
-            raise ValueError("Input table not square")
-
-        column_widths = elementwise_max(column_widths, widths)
-
-    for row in table:
-        print("  ".join( 
-                 [
-                  "{0:{1}}".format(str(cell), column_width)
-                  for cell, column_width in zip(row, column_widths)
-                 ]
-               )
-             )
-
-
