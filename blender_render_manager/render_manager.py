@@ -11,7 +11,8 @@ import logging
 import subprocess
 import copy
 
-from shot_list_db import ShotListDb, print_table
+from shot_list_db import ShotListDb
+from common import *
 
 
 SHOT_LIST_FILEPATH = "blender_shot_list.json"
@@ -110,14 +111,14 @@ def build_shot(shot_list_db, shot_category, shot_id, quality, slate):
 
     print("Returned Value: ", res)
 
-IMAGE_FILE_EXTENSIONS = {
-    "PNG": ".png",
-    'OPEN_EXR_MULTILAYER': ".exr",
-    'OPEN_EXR': ".exr",
-    "TIFF": ".tiff",
-    "JPEG": ".jpeg",
-    "JPEG2000": ".jpeg"
-}
+#IMAGE_FILE_EXTENSIONS = {
+#    "PNG": "png",
+#    'OPEN_EXR_MULTILAYER': "exr",
+#    'OPEN_EXR': "exr",
+#    "TIFF": "tiff",
+#    "JPEG": "jpeg",
+#    "JPEG2000": "jpeg"
+#}
 
 def verify_shot(shot_list_db, shot_category, shot_id, quality, slate):
     ### XXX We have the same code in render_script.py :/
@@ -140,7 +141,7 @@ def verify_shot(shot_list_db, shot_category, shot_id, quality, slate):
         ext = IMAGE_FILE_EXTENSIONS[shot_info.get("output_file_format", "PNG")]
         
         for frame in range(shot_info["frame_start"], shot_info["frame_end"]):
-            filename = "%04d" % frame + ext
+            filename = "%04d" % frame + "." + ext
             if not os.path.exists(render_path + filename):
                 return False
         return True

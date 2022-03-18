@@ -3,6 +3,7 @@ import sys
 import copy
 import os
 
+
 # Find the directory where this file (render_manager.py) resides
 # NOTE: This will break if os.chdir() is called before this line runs
 render_script_py_path = os.path.dirname(os.path.realpath(__file__))
@@ -11,20 +12,21 @@ render_script_py_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(render_script_py_path)
 
 import shot_list_db
+from common import *
 
-def parse_resolution_string(resolution_string):
-    """Parse a string like "1920x1080" -> [1920, 1080]"""
-    try:
-        [x_str, y_str] = resolution_string.upper().split("X")
-        x = int(x_str)
-        y = int(y_str)
-    except ValueError as e:
-        raise ValueError("Invalid resolution string \"" + resolution_string + "\"")
+#def parse_resolution_string(resolution_string):
+#    """Parse a string like "1920x1080" -> [1920, 1080]"""
+#    try:
+#        [x_str, y_str] = resolution_string.upper().split("X")
+#        x = int(x_str)
+#        y = int(y_str)
+#    except ValueError as e:
+#        raise ValueError("Invalid resolution string \"" + resolution_string + "\"")
+#
+#    return [x,y]
 
-    return [x,y]
-
-def parse_boolean(b):
-    return str(b).upper() in ["TRUE", "1", "YES", "ON"]
+#def parse_boolean(b):
+#    return str(b).upper() in ["TRUE", "1", "YES", "ON"]
 
 
 def find_next_slate_number(path):
@@ -71,7 +73,7 @@ else:
 #
 #    "max_cycles_samples": [128, 1024, 4096], 
 #
-quality_index = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "FINAL": 3}.get(quality.upper(), 3)
+quality_index = get_quality_index(quality)
 
 shot_list_db = shot_list_db.ShotListDb.from_file(shot_list_db_filepath)
 
@@ -101,12 +103,13 @@ bpy.context.scene.render.use_motion_blur = parse_boolean(shot_info.get("use_moti
 
 
 # Output settings
-bpy.context.scene.render.resolution_percentage = shot_info.get("resolution_percentage", [50, 50, 100])[quality_index]
-bpy.context.scene.render.resolution_x = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[0];
-bpy.context.scene.render.resolution_y = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[1];
-bpy.context.scene.render.image_settings.file_format = shot_info.get("output_file_format", "PNG")
-bpy.context.scene.render.image_settings.color_mode = shot_info.get("output_color_mode", 'RGBA')
-bpy.context.scene.render.image_settings.color_depth = shot_info.get("output_color_depth", 16)
+set_render_resolution(shot_info, quality)
+#bpy.context.scene.render.resolution_percentage = shot_info.get("resolution_percentage", [50, 50, 100, 100])[quality_index]
+#bpy.context.scene.render.resolution_x = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[0];
+#bpy.context.scene.render.resolution_y = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[1];
+bpy.context.scene.render.image_settings.file_format = shot_info.get("render_file_format", "PNG")
+bpy.context.scene.render.image_settings.color_mode = shot_info.get("render_color_mode", 'RGBA')
+bpy.context.scene.render.image_settings.color_depth = shot_info.get("render_color_depth", "16")
 bpy.context.scene.render.use_overwrite = False
 bpy.context.scene.render.use_placeholder = False
 

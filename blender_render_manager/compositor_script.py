@@ -12,21 +12,19 @@ import copy
 import os
 import functools
 import logging
+import time
+
+logging.getLogger().setLevel(logging.INFO)
 
 # Find the directory where this file (render_manager.py) resides
 # NOTE: This will break if os.chdir() is called before this line runs
-render_script_py_path = os.path.dirname(os.path.realpath(__file__))
+script_py_path = os.path.dirname(os.path.realpath(__file__))
 
 # Append this directory to path, so that we can find "shot_list_db.py"
-sys.path.append(render_script_py_path)
+sys.path.append(script_py_path)
 
 import shot_list_db
-
-# XXX Duplicated with render_manager.py
-IMAGE_FILE_EXTENSIONS = {
-    "OPEN_EXR_MULTILAYER": "EXR",
-    "PNG": "PNG",
-}
+from common import *
 
 # DEFAULT_COMPOSITOR_CHAIN_BLEND_FILE = "D:\\Assets\\Models\\Mine\\compositor recipes\\default_compositor_chain.blend"
 
@@ -116,18 +114,8 @@ def configure_compositor_chain(compositor_chain_db):
             except AttributeError:
                 logging.exception("Compositor config specified non-existant property \"%s\" for node \"%s\"." % (node_property, node_name))
 
-# WIP
 def setup_compositor_source_image(src_filepath):
-
-    # First we have to load the source image sequence into Blender's data object tree
-#    result = bpy.ops.image.open(
-#                            filepath=os.path.join(src_path, (src_filename_stub + "%04d" % frame_start),
-#                            directory=src_path, 
-#                            files=[ {"name": src_filename_stub + ("%04d" % i) + src_filename_ext} 
-#                                    for i in range(frame_start, frame_end + 1)
-#                                  ], 
-#                            show_multiview=False)
-#                        )
+    """Setup the compositor source image node to load the rendered image"""
 
     # First we have to load the source imageinto Blender's data object tree
     result = bpy.ops.image.open(
@@ -151,18 +139,17 @@ def setup_compositor_source_image(src_filepath):
         raise ValueError("Compositor missing 'Source Image' node.")
 
     source_image_node.image = image
-    image.colorspace_settings.name = 'Filmic Log'
+    image.colorspace_settings.name = 'Raw'
     image.source = 'FILE'
+    bpy.data.scenes["Scene"].node_tree.nodes["Source Image"].layer = 'View Layer'
+    print(src_filepath)
 
-
-
-    # XXX Need to set frame start and end, and output file resolution to match the source footage
-    # and set the output path.
 
 ## This is a Blender python script. It should
 ## 1. Get from the command line
-##   a. the directory to monitor
-##   b. the output directoy and filename pattern
+##   a. the shot-list JSON file
+##   b. ID of the shot to render + slate number and quality
+##      (from this, we know where the render is save, it's resolution etc.)
 ## 2. Set up the compositor nodes as specified in the JSON
 ## 3. Do any configuration of standard Blender settings, render engine etc. needed for compositing.
 ## 4. Monitor the incoming directory for frames that have not yet been composited
@@ -177,9 +164,8 @@ def setup_compositor_source_image(src_filepath):
 argv = sys.argv
 argv = argv[argv.index("--") + 1:]  # get all args after "--"
 
-print(len(argv))
 if len(argv) == 5:
-    [shot_list_db_filepath, shot_category, shot_id, slate_number, outgoing_file_extension] = argv
+    [shot_list_db_filepath, shot_category, shot_id, quality, slate_number] = argv
 else:
     raise ValueError("Not enough command line parameters supplied to compositor_script.py")
 
@@ -208,22 +194,31 @@ else:
     filename =  shot_category + "_" + shot_id + "_" + slate_number + "_"
     incoming_filestub = os.path.join(output_path_base, "slate_%s/" % str(slate_number)) + filename 
 
-incoming_file_format = shot_list_db.get_shot_info(shot_category, shot_id).get("output_file_format", "PNG")
+incoming_file_format = shot_list_db.get_shot_info(shot_category, shot_id).get("render_file_format", "PNG")
 incoming_file_extension = IMAGE_FILE_EXTENSIONS[incoming_file_format]
+outgoing_file_format = shot_list_db.get_shot_info(shot_category, shot_id).get("composite_file_format", "PNG")
+outgoing_file_extension = IMAGE_FILE_EXTENSIONS[outgoing_file_format]
 
-outgoing_filestub = os.path.join(output_path_base, "slate_%s_composite/" % str(slate_number)) + filename 
+filename =  shot_category + "_" + shot_id + "_" + slate_number + "_comp_" 
+outgoing_filestub = os.path.join(output_path_base, "slate_%s_composite/" % str(slate_number)) + filename
 
 ##
 ## Setup the nodes in the compositor chain.
 ##
 compositor_chain_db = shot_info.get("compositor_chain", None)
 if compositor_chain_db:
+    logging.info("Setting up compositor chain...")
+    print(compositor_chain_db)
     configure_compositor_chain(compositor_chain_db)
 
 ##
 ## Set render settings
 ##
 bpy.context.scene.render.engine = 'CYCLES'
+set_render_resolution(shot_info, quality)
+bpy.context.scene.render.image_settings.file_format = shot_info.get("composite_file_format", "PNG")
+bpy.context.scene.render.image_settings.color_mode = shot_info.get("composite_color_mode", 'RGBA')
+bpy.context.scene.render.image_settings.color_depth = shot_info.get("composite_color_depth", "16")
 
 ##
 ## Some helper functions
@@ -293,4 +288,4 @@ while True:
 
     if len(frames_waiting_to_be_composited) == 0:
         logging.info("No frames waiting to be composited; sleeping 30s")
-        sleep(30)
+        time.sleep(30)
