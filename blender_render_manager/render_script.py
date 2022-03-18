@@ -49,35 +49,7 @@ def find_next_slate_number(path):
         return 1
 
 
-#
-# We are going to need to make blender files which contain compositing "recipes"; i.e
-# a node setup that does basic operations like denoising, or adding distortion.
-# We need to be able to set these up using Python code to point to the correct source
-# images. I'm starting to gather the code to do this here.
-#
-def setup_compositor(src_path, src_filename_stub, src_filename_ext, frame_start, frame_end):
 
-    # First we have to load the source image sequence into Blender's data object tree
-    result = bpy.ops.image.open(
-                            filepath=os.path.join(src_path, (src_filename_stub + "%04d" % frame_start),
-                            directory=src_path, 
-                            files=[ {"name": src_filename_stub + ("%04d" % i) + src_filename_ext} 
-                                    for i in range(frame_start, frame_end + 1)
-                                  ], 
-                            show_multiview=False)
-                        )
-
-    if result != {'FINISHED'}:
-        raise FileNotFoundError("Failed to load source image sequence for composition")
-
-    # We expect the compositor node setup to have an Image Sequenece node called "Source Image"
-    try:
-        bpy.data.scenes["Scene"].node_tree.nodes["Source Image"].image
-    except KeyError as e:
-        raise ValueError("Compositor missing 'Source Image' node.")
-
-    # XXX Need to set frame start and end, and output file resolution to match the source footage
-    # and set the output path.
 
 
 # Parse command line
@@ -91,7 +63,7 @@ if len(argv) == 4:
 elif len(argv) == 5:
     [shot_list_db_filepath, shot_category, shot_id, quality, slate_number ] = argv
 else:
-    raise ValueError("Not enough command line parameters supplued to render_script.py")
+    raise ValueError("Not enough command line parameters supplied to render_script.py")
 
 # Index into lists in shot list file.
 # - Parameters which are difference for low/medium/high quality renders are
