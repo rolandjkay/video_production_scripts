@@ -119,7 +119,7 @@ def composite_shot(shot_list_db, shot_category, shot_id, quality, slate):
     # Look up the blend file pattern from the shot list db and resolve to an actual file.
     #
 
-    DEFAULT_COMPOSITOR_CHAIN = "D:\\Assets\\Models\\Mine\\compositor recipes"
+    DEFAULT_COMPOSITOR_CHAIN = "D:\\Assets\\Models\\Mine\\compositor recipes\\default_compositor_chain.blend"
 
     compositor_cmd = " ".join(['"' + os.path.join(BLENDER_ROOT, "blender") + '"', 
                             "-b", '"' + DEFAULT_COMPOSITOR_CHAIN + '"', 
@@ -210,7 +210,7 @@ def main(*_args):
             if len(args) == 3:
                 [shot_category, shot_id, quality] = args
                 slate_number = None
-            elif len(args == 4):
+            elif len(args) == 4:
                 [shot_category, shot_id, quality, slate_number] = args
 
             if quality.upper() not in ["LOW", "MEDIUM", "HIGH"]:
