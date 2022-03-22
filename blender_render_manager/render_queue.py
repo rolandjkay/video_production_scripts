@@ -192,7 +192,7 @@ class RenderQueue:
 ###
 
 # This is the main function of the render sub-process
-def queue_processor(render_queue_state, current_shot_as_lst):
+def render_queue_main(render_queue_state, current_shot_as_lst):
     import render_manager
     import time
 
@@ -261,6 +261,64 @@ def queue_processor(render_queue_state, current_shot_as_lst):
         logging.info("Sleeping for 5 seconds...")
         time.sleep(5)
 
+# XXX Lots of code shared between these two 'main' functions
+# This is the main function of the compositor sub-process
+def compositor_queue_main(render_queue_state, current_shot_as_lst):
+    import render_manager
+    import time
+
+    logging.info("Starting compositor queue")
+    logging.info("*************************")
+
+    # Convert from shared Python primatives to Python object wrappers.
+    render_queue = RenderQueue.from_state(render_queue_state)
+    current_shot = RenderQueue.Shot(*current_shot_as_lst) # XXX This is, in fact, copying the data, which could be an issue.
+
+    if len(render_queue.shots) == 0:
+        logging.info("Queue empty; quitting")
+        exit()
+
+    # XXX Could be neater. It's a shame we have to do this here.
+    shot_list_db = render_manager.ShotListDb.from_file(render_manager.SHOT_LIST_FILEPATH)
+
+
+    while True:
+
+        render_manager.composite_shot(shot_list_db, current_shot.category,
+                                                    current_shot.id, 
+                                                    render_queue.quality, 
+                                                    current_shot.slate)
+
+        logging.info("Shot \"" + shot_to_str(current_shot) + "\" composited; trying next shot...")
+
+        try:
+            index = [ i for (i, shot) in enumerate(render_queue.shots) 
+                          if shot.category == current_shot.category
+                             and shot.id == current_shot.id 
+                             and shot.slate == current_shot.slate][0]
+        except IndexError:
+            # Shot doesn't exist; so start again from the top
+            logging.info("Shot \"" + shot_to_str(current_shot) + "\" missing from render queue; starting again from first shot [compositor]")
+            index = -1
+
+        try:
+            current_shot = render_queue.shots[index+1]
+        except IndexError:
+            logging.info("Shot \"" + shot_to_str(current_shot) + "\" is the last in the queue (compositor)")
+
+            # Sleep 30 seconds at the end of the queue, just to avoid going round in a hard
+            # loop if all the shots have been built.
+            logging.info("Sleeping for 30 seconds...")
+            time.sleep(30)
+
+        # Check for changes in the render queue file.
+        render_queue.refresh()
+
+        logging.info("Sleeping for 5 seconds...")
+        time.sleep(5)
+
+
+
 #
 # Note that we wrote this as a multi-processing script, so that one thread could
 # listen to client requests and the other run the queue. But, in the end, we
@@ -277,7 +335,8 @@ if __name__ == '__main__':
 
         children = []
        # children.append(Process(target=client_request_handler, args=(render_queue.state,)))
-        children.append(Process(target=queue_processor, args=(render_queue.state, current_shot)))
+        children.append(Process(target=render_queue_main, args=(render_queue.state, current_shot)))
+        children.append(Process(target=compositor_queue_main, args=(render_queue.state, current_shot)))
 
     
         [ c.start() for c in children ]
