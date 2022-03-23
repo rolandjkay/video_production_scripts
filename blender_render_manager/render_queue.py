@@ -231,7 +231,8 @@ def render_queue_main(render_queue_state, current_shot_as_lst):
             render_manager.build_shot(shot_list_db, current_shot.category,
                                                     current_shot.id, 
                                                     render_queue.quality, 
-                                                    current_shot.slate)
+                                                    current_shot.slate,
+                                                    in_separate_window = True)
         else:
             logging.info("Shot \"" + shot_to_str(current_shot) + "\" already built; trying next shot...")
 

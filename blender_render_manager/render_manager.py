@@ -80,7 +80,7 @@ def find_latest_blend_file(filepath):
         return filepath.replace('[X]', str(max_index))
 
 
-def build_shot(shot_list_db, shot_category, shot_id, quality, slate):
+def build_shot(shot_list_db, shot_category, shot_id, quality, slate, in_separate_window = False):
     shot_info = shot_list_db.get_shot_info(shot_category, shot_id)
 
     # Look up the blend file pattern from the shot list db and resolve to an actual file.
@@ -92,7 +92,9 @@ def build_shot(shot_list_db, shot_category, shot_id, quality, slate):
         raise FileError("Shot list didn't specify blend file for shot %s/%s" % (shot_category, shot_id))
 
 
-    build_cmd = " ".join(['"' + os.path.join(BLENDER_ROOT, "blender") + '"', 
+    build_cmd = " ".join((["start", '"Renderer"', '/wait'] if in_separate_window else [])
+                         +
+                         ['"' + os.path.join(BLENDER_ROOT, "blender") + '"', 
                           "-b", '"' + blend_file + '"', 
                           "--python", '"' + os.path.join(render_manager_py_path, RENDER_SCRIPT) + '"', 
                           "--",
@@ -102,8 +104,8 @@ def build_shot(shot_list_db, shot_category, shot_id, quality, slate):
                           quality,
                           str(slate)])
 
-    print("Launching blender")
-    print("#################")
+    print("Launching Blender Renderer")
+    print("##########################")
     print()
     print(build_cmd)
     print()
@@ -121,7 +123,7 @@ def composite_shot(shot_list_db, shot_category, shot_id, quality, slate, in_sepa
 
     DEFAULT_COMPOSITOR_CHAIN = "D:\\Assets\\Models\\Mine\\compositor recipes\\default_compositor_chain.blend"
 
-    compositor_cmd = " ".join((["start", '"COMPOSITOR"', '/wait'] if in_separate_window else [])
+    compositor_cmd = " ".join((["start", '"Compositor"', '/wait'] if in_separate_window else [])
                               +
                               ['"' + os.path.join(BLENDER_ROOT, "blender") + '"', 
                                "-b", '"' + DEFAULT_COMPOSITOR_CHAIN + '"', 
@@ -133,8 +135,8 @@ def composite_shot(shot_list_db, shot_category, shot_id, quality, slate, in_sepa
                                quality,
                                str(slate)])
 
-    print("Launching blender")
-    print("#################")
+    print("Launching Blender compositor")
+    print("############################")
     print()
     print(compositor_cmd)
     print()
@@ -142,15 +144,6 @@ def composite_shot(shot_list_db, shot_category, shot_id, quality, slate, in_sepa
     res = subprocess.call(compositor_cmd, shell = True)
 
     print("Returned Value: ", res)
-
-#IMAGE_FILE_EXTENSIONS = {
-#    "PNG": "png",
-#    'OPEN_EXR_MULTILAYER': "exr",
-#    'OPEN_EXR': "exr",
-#    "TIFF": "tiff",
-#    "JPEG": "jpeg",
-#    "JPEG2000": "jpeg"
-#}
 
 def verify_shot(shot_list_db, shot_category, shot_id, quality, slate):
     ### XXX We have the same code in render_script.py :/
