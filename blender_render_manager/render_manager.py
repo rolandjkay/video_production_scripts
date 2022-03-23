@@ -113,7 +113,7 @@ def build_shot(shot_list_db, shot_category, shot_id, quality, slate):
     print("Returned Value: ", res)
 
 
-def composite_shot(shot_list_db, shot_category, shot_id, quality, slate):
+def composite_shot(shot_list_db, shot_category, shot_id, quality, slate, in_separate_window = False):
     shot_info = shot_list_db.get_shot_info(shot_category, shot_id)
 
     # Look up the blend file pattern from the shot list db and resolve to an actual file.
@@ -121,15 +121,17 @@ def composite_shot(shot_list_db, shot_category, shot_id, quality, slate):
 
     DEFAULT_COMPOSITOR_CHAIN = "D:\\Assets\\Models\\Mine\\compositor recipes\\default_compositor_chain.blend"
 
-    compositor_cmd = " ".join(['"' + os.path.join(BLENDER_ROOT, "blender") + '"', 
-                            "-b", '"' + DEFAULT_COMPOSITOR_CHAIN + '"', 
-                            "--python", '"' + os.path.join(render_manager_py_path, COMPOSITOR_SCRIPT) + '"', 
-                            "--",
-                            SHOT_LIST_FILEPATH,
-                            str(shot_category),
-                            str(shot_id),
-                            quality,
-                            str(slate)])
+    compositor_cmd = " ".join((["start", '"COMPOSITOR"', '/wait'] if in_separate_window else [])
+                              +
+                              ['"' + os.path.join(BLENDER_ROOT, "blender") + '"', 
+                               "-b", '"' + DEFAULT_COMPOSITOR_CHAIN + '"', 
+                               "--python", '"' + os.path.join(render_manager_py_path, COMPOSITOR_SCRIPT) + '"', 
+                               "--",
+                               SHOT_LIST_FILEPATH,
+                               str(shot_category),
+                               str(shot_id),
+                               quality,
+                               str(slate)])
 
     print("Launching blender")
     print("#################")
@@ -216,7 +218,7 @@ def main(*_args):
             if quality.upper() not in ["LOW", "MEDIUM", "HIGH"]:
                 raise ValueError
         except ValueError:
-            print("Usage:", "render_manager.py", "COMPOSITE", "<category>", "<id>", "<quality: LOW|MEDIUM|HIGH|FINAL>", "[slate number]") 
+            print("Usage:", "render_manager.py", "COMPOSITE", "<category>", "<id>", "<quality: LOW|MEDIUM|HIGH|FINAL>", "slate number") 
             return
          
         composite_shot(shot_list_db, shot_category, shot_id, quality, slate_number) 

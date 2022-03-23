@@ -287,7 +287,8 @@ def compositor_queue_main(render_queue_state, current_shot_as_lst):
         render_manager.composite_shot(shot_list_db, current_shot.category,
                                                     current_shot.id, 
                                                     render_queue.quality, 
-                                                    current_shot.slate)
+                                                    current_shot.slate,
+                                                    in_separate_window = True)
 
         logging.info("Shot \"" + shot_to_str(current_shot) + "\" composited; trying next shot...")
 
