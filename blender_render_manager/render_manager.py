@@ -155,8 +155,8 @@ def verify_shot(shot_list_db, shot_category, shot_id, quality, slate):
     else:
         output_path_base =  os.path.join(shot_list_db.render_root, shot_info["title"])
 
-        if slate is None:
-            slate = find_next_slate_number(output_path_base)
+#        if slate is None:
+#            slate = find_next_slate_number(output_path_base)
 
     filename =  str(shot_category) + "_" + str(shot_id) + "_" + str(slate) + "_"
     render_path = os.path.join(output_path_base, "slate_%d\\" % slate) + filename
@@ -191,24 +191,32 @@ def main(*_args):
         list_shots(shot_list_db)
     elif command == "BUILD":
         try:
-            [shot_category, shot_id, quality] = args
+ #           if len(args) == 3:
+ #               [shot_category, shot_id, quality] = args
+ #               slate_number = None
+            if len(args) == 4:
+                [shot_category, shot_id, quality, slate_number] = args
+            else:
+                raise ValueError("Not enough args")
 
-            if quality.upper() not in ["LOW", "MEDIUM", "HIGH"]:
+            if quality.upper() not in ["LOW", "MEDIUM", "HIGH", "FINAL"]:
                 raise ValueError
         except ValueError:
             print("Usage:", "render_manager.py", "BUILD", "<category>", "<id>", "<quality: LOW|MEDIUM|HIGH|FINAL>", "[slate number]") 
             return
          
-        build_shot(shot_list_db, shot_category, shot_id, quality) 
+        build_shot(shot_list_db, shot_category, shot_id, quality, slate_number) 
     elif command == "COMPOSITE":
         try:
-            if len(args) == 3:
-                [shot_category, shot_id, quality] = args
-                slate_number = None
-            elif len(args) == 4:
+            #f len(args) == 3:
+            #   [shot_category, shot_id, quality] = args
+            #   slate_number = None
+            if len(args) == 4:
                 [shot_category, shot_id, quality, slate_number] = args
+            else:
+                raise ValueError("Not enough args")
 
-            if quality.upper() not in ["LOW", "MEDIUM", "HIGH"]:
+            if quality.upper() not in ["LOW", "MEDIUM", "HIGH", "FINAL"]:
                 raise ValueError
         except ValueError:
             print("Usage:", "render_manager.py", "COMPOSITE", "<category>", "<id>", "<quality: LOW|MEDIUM|HIGH|FINAL>", "slate number") 

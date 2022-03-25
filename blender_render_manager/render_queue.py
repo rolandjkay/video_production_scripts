@@ -190,8 +190,8 @@ class RenderQueue:
 # Do common initialization tasks of the renderer and compositor subprocesses
 #
 def setup_subprocess(subprocess_name, render_queue_state, current_shot_as_lst):
-    logging.info("Starting", subprocess_name)
-    logging.info("*********", "*" * len(subprocess_name))
+    logging.info("Starting " + subprocess_name)
+    logging.info("*********" + ("*" * len(subprocess_name)))
 
     # Convert from shared Python primatives to Python object wrappers.
     render_queue = RenderQueue.from_state(render_queue_state)
