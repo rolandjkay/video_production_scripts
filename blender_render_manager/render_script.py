@@ -1,7 +1,78 @@
 import bpy
+import mathutils
 import sys
 import copy
 import os
+
+
+#
+# Add a File Output node to the compositor which writes the requested render passes
+#
+def configure_render_passes(render_passes_db, render_output_path):
+    scene = bpy.data.scenes['Scene']
+    view_layer = scene.view_layers[0] # XXX Need to think about files with multiple scenes/view layers!!!
+
+    # Make sure the compositor is "using nodes"
+    scene.use_nodes = True
+
+    # Setup a File Output node
+    #
+    output_node = scene.node_tree.nodes.new(type="CompositorNodeOutputFile")
+    output_node.base_path = render_output_path + "/passes/"
+
+    # This is how to set the output path of the first input, but we ignore it for the
+    # sake of keeping the code more homogeneous.
+    #bpy.data.scenes["Scene"].node_tree.nodes["File Output"].file_slots[0].path = "mist/mist_"
+
+    # Get the "Render Layers" node
+    render_layers_node = scene.node_tree.nodes["Render Layers"]
+
+    # Move "File Output" node to be not too far from the Render Layers node
+    output_node.location = render_layers_node.location + mathutils.Vector((render_layers_node.width + 100,-500))
+
+    # Helper func to connect the last node of 'output_node' to the given output of 'rl_node'.
+    def connect(rl_output_name):
+        scene.node_tree.links.new(render_layers_node.outputs[rl_output_name], output_node.inputs[-1])
+
+    def optional_connect_render_layer_output(db_prop_name,
+                                             output_subpath,
+                                             view_layer_prop_name,
+                                             render_layer_output_name):
+        """Connect the nodes to output the given render layer, if enabled.
+
+        db_prop_name:   The name of the flag in the JSON file to enable render layer; e.g. "z"
+        output_subpath: relative path in render output directory; e.g. mist/must_
+        view_layer_prop_name:  VL property to set to true to enable this render layer
+        render_layer_output_name: The output of the Render Layers node to conenct to
+
+        """
+        if render_passes_db.get(db_prop_name, False):
+            output_node.file_slots.new(output_subpath)
+            setattr(view_layer, view_layer_prop_name, True)
+            connect(render_layer_output_name)
+
+    #if render_passes_db.get("mist", False):
+    #    output_node.file_slots.new("mist/mist_")
+    #    view_layer.use_pass_mist = True
+    #    connect("Mist")
+
+    optional_connect_render_layer_output("mist", "mist/mist_", "use_pass_mist", "Mist")
+    optional_connect_render_layer_output("z", "z/z_", "use_pass_z", "Mist")
+    optional_connect_render_layer_output("position", "position/position_", "use_pass_position", "Position")
+    optional_connect_render_layer_output("normal", "normal/normal_", "use_pass_normal", "Position")
+    optional_connect_render_layer_output("vector", "vector/vector_", "use_pass_vector", "Vector")
+    optional_connect_render_layer_output("uv", "uv/uv_", "use_pass_uv", "UV")
+
+    # Denoise data is a but different from the other Render Layers.
+    if render_passes_db.get("denoise_data", False):
+        scene.view_layers['ViewLayer'].cycles.denoising_store_passes = True
+
+        output_node.file_slots.new("denoise_albedo/denoise_albedo_")
+        connect("Denoising Albedo")
+        output_node.file_slots.new("denoise_normal/denoise_normal_")
+        connect("Denoising Normal")
+        output_node.file_slots.new("denoise_depth/denoise_depth_")
+        connect("Denoising Depth")
 
 
 # Find the directory where this file (render_manager.py) resides
@@ -29,26 +100,31 @@ from common import *
 #    return str(b).upper() in ["TRUE", "1", "YES", "ON"]
 
 
-def find_next_slate_number(path):
-    """Find the next free slate_XXX directory"""
-    import re
-
-    pattern = re.compile("slate_([0-9]+)")
-
-    try:
-        max_index = -0
-        for candidate in os.listdir(path):
-            m = pattern.fullmatch(candidate)
-            if m:
-                index = int(m.group(1)) 
-                if index > max_index:
-                    max_index = index
-
-        return max_index + 1
-    except FileNotFoundError:
-        # If os.listdir() failed, because the render output directory doesn't 
-        # exist, then this is the first render, so the slate number is 1.
-        return 1
+# It's a problem for the compositor if we're not clear about which slate is being
+# rendered. E.g. did the compositor start before the renderer, in which case it
+# should use the next free slate number, or after, in which case it should use
+# the highest numbered existing slate. Better just to insist that the user gives
+# the exact slate number and don't try to guess.
+#def find_next_slate_number(path):
+#    """Find the next free slate_XXX directory"""
+#    import re
+#
+#    pattern = re.compile("slate_([0-9]+)")
+#
+#    try:
+#        max_index = -0
+#        for candidate in os.listdir(path):
+#            m = pattern.fullmatch(candidate)
+#            if m:
+#                index = int(m.group(1)) 
+#                if index > max_index:
+#                    max_index = index
+#
+#        return max_index + 1
+#    except FileNotFoundError:
+#        # If os.listdir() failed, because the render output directory doesn't 
+#        # exist, then this is the first render, so the slate number is 1.
+#        return 1
 
 
 
@@ -59,10 +135,11 @@ def find_next_slate_number(path):
 argv = sys.argv
 argv = argv[argv.index("--") + 1:]  # get all args after "--"
 
-if len(argv) == 4:
-    [shot_list_db_filepath, shot_category, shot_id, quality] = argv
-    slate_number = None
-elif len(argv) == 5:
+# Don' guess the slate number
+#if len(argv) == 4:
+#    [shot_list_db_filepath, shot_category, shot_id, quality] = argv
+#    slate_number = None
+if len(argv) == 5:
     [shot_list_db_filepath, shot_category, shot_id, quality, slate_number ] = argv
 else:
     raise ValueError("Not enough command line parameters supplied to render_script.py")
@@ -115,16 +192,18 @@ bpy.context.scene.render.use_placeholder = False
 
 # Use output path override given in the shot list, if given. Otherwise, fallback on eg. Renders/Title/slate_3/...
 if shot_info.get("output_filepath_override"):
-    bpy.context.scene.render.filepath = shot_info.get("output_filepath_override")
+    render_filepath = shot_info.get("output_filepath_override")
+    bpy.context.scene.render.filepath = render_filepath
 else:
     output_path_base =  os.path.join(shot_list_db.render_root, shot_info["title"])
 
-    if slate_number is None:
-        slate_number = find_next_slate_number(output_path_base)
+#    if slate_number is None:
+#        slate_number = find_next_slate_number(output_path_base)
 
 
     filename =  shot_category + "_" + shot_id + "_" + slate_number + "_"
-    bpy.context.scene.render.filepath = os.path.join(output_path_base, "slate_%s/" % str(slate_number)) + filename 
+    render_filepath = os.path.join(output_path_base, "slate_%s/" % str(slate_number)) + filename 
+    bpy.context.scene.render.filepath = render_filepath
 
 
 # Map EEVEE -> BLENDER_EEVEE and WORKBENCH -> BLENDER_WORKBENCH. Otherwise, use whatever was specified in the shot list.
@@ -132,18 +211,29 @@ render_engine = shot_info.get("render_engine", "CYCLES")
 bpy.context.scene.render.engine = {"EEVEE": "BLENDER_EEVEE", "WORKBENCH": "BLENDER_WORKBENCH"}.get(render_engine, render_engine)
 
 # Cycles settings
-bpy.context.scene.cycles.samples = shot_info.get("max_cycles_samples", [256, 1024, 4096])[quality_index] 
+bpy.context.scene.cycles.samples = shot_info.get("max_cycles_samples", [256, 1024, 1024, 4096])[quality_index] 
 bpy.context.scene.cycles.use_denoising = parse_boolean(shot_info.get("use_denoising", False))
 bpy.context.scene.cycles.device = shot_info.get("rendering_device", 'GPU') 
 bpy.context.scene.cycles.use_animated_seed = True
 
+# If we're using Cycles; setup compositor to output render passes
+render_passes_db = shot_info.get("render_passes")
+if render_passes_db is not None and render_engine == "CYCLES":
+    render_dir = os.path.dirname(render_filepath)
+    configure_render_passes(render_passes_db, render_dir)
+
+# XXX We haven't thought about how rendering out render passes is going to work with 
+# multiple render later (see below). Probably, we should duplicate the Render Layers
+# node and File Output node for every view layer. We'd have to think about how
+# to set render_filepath as well.
+
 # Enable denoise data, vector and mist passes for all render layers.
-if shot_info.get("enable_all_layers", False):
-    for layer_name in bpy.context.scene.view_layers.keys():
-        bpy.context.scene.view_layers[layer_name].cycles.denoising_store_passes = True
-        bpy.context.scene.view_layers[layer_name].use_pass_vector = True
-        bpy.context.scene.view_layers[layer_name].use_pass_mist = True
-        bpy.context.scene.view_layers[layer_name].use_pass_z = True
+#if shot_info.get("enable_all_layers", False):
+#    for layer_name in bpy.context.scene.view_layers.keys():
+#        bpy.context.scene.view_layers[layer_name].cycles.denoising_store_passes = True
+#        bpy.context.scene.view_layers[layer_name].use_pass_vector = True
+#        bpy.context.scene.view_layers[layer_name].use_pass_mist = True
+#        bpy.context.scene.view_layers[layer_name].use_pass_z = True
 
 
 # Object to hide in render
