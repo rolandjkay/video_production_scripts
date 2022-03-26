@@ -166,7 +166,9 @@ for key, value in shot_info.items():
     print(key + ":", (width - len(key)) * ".",value)
 print()
 
-bpy.context.scene.camera = bpy.data.objects[shot_info["camera"]]
+scene = bpy.data.scenes['Scene']
+
+scene.camera = bpy.data.objects[shot_info["camera"]]
 
 # Frame start and end defaults to whatever is in the Blender file
 if "frame_start" in shot_info:
@@ -174,9 +176,9 @@ if "frame_start" in shot_info:
 if "frame_end" in shot_info:
     bpy.context.scene.frame_end = shot_info["frame_end"]
     
-bpy.context.scene.render.film_transparent = parse_boolean(shot_info.get("film_transparent", False)) 
-bpy.context.scene.render.fps = shot_info.get("fps", 25) 
-bpy.context.scene.render.use_motion_blur = parse_boolean(shot_info.get("use_motion_blur", True))
+scene.render.film_transparent = parse_boolean(shot_info.get("film_transparent", False)) 
+scene.render.fps = shot_info.get("fps", 25) 
+scene.render.use_motion_blur = parse_boolean(shot_info.get("use_motion_blur", True))
 
 
 # Output settings
@@ -184,16 +186,16 @@ set_render_resolution(shot_info, quality)
 #bpy.context.scene.render.resolution_percentage = shot_info.get("resolution_percentage", [50, 50, 100, 100])[quality_index]
 #bpy.context.scene.render.resolution_x = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[0];
 #bpy.context.scene.render.resolution_y = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[1];
-bpy.context.scene.render.image_settings.file_format = shot_info.get("render_file_format", "PNG")
-bpy.context.scene.render.image_settings.color_mode = shot_info.get("render_color_mode", 'RGBA')
-bpy.context.scene.render.image_settings.color_depth = shot_info.get("render_color_depth", "16")
-bpy.context.scene.render.use_overwrite = False
-bpy.context.scene.render.use_placeholder = False
+scene.render.image_settings.file_format = shot_info.get("render_file_format", "PNG")
+scene.render.image_settings.color_mode = shot_info.get("render_color_mode", 'RGBA')
+scene.render.image_settings.color_depth = shot_info.get("render_color_depth", "16")
+scene.render.use_overwrite = False
+scene.render.use_placeholder = False
 
 # Use output path override given in the shot list, if given. Otherwise, fallback on eg. Renders/Title/slate_3/...
 if shot_info.get("output_filepath_override"):
     render_filepath = shot_info.get("output_filepath_override")
-    bpy.context.scene.render.filepath = render_filepath
+    scene.render.filepath = render_filepath
 else:
     output_path_base =  os.path.join(shot_list_db.render_root, shot_info["title"])
 
@@ -208,13 +210,13 @@ else:
 
 # Map EEVEE -> BLENDER_EEVEE and WORKBENCH -> BLENDER_WORKBENCH. Otherwise, use whatever was specified in the shot list.
 render_engine = shot_info.get("render_engine", "CYCLES")
-bpy.context.scene.render.engine = {"EEVEE": "BLENDER_EEVEE", "WORKBENCH": "BLENDER_WORKBENCH"}.get(render_engine, render_engine)
+scene.render.engine = {"EEVEE": "BLENDER_EEVEE", "WORKBENCH": "BLENDER_WORKBENCH"}.get(render_engine, render_engine)
 
 # Cycles settings
-bpy.context.scene.cycles.samples = shot_info.get("max_cycles_samples", [256, 1024, 1024, 4096])[quality_index] 
-bpy.context.scene.cycles.use_denoising = parse_boolean(shot_info.get("use_denoising", False))
-bpy.context.scene.cycles.device = shot_info.get("rendering_device", 'GPU') 
-bpy.context.scene.cycles.use_animated_seed = True
+scene.cycles.samples = shot_info.get("max_cycles_samples", [256, 1024, 1024, 4096])[quality_index] 
+scene.cycles.use_denoising = parse_boolean(shot_info.get("use_denoising", False))
+scene.cycles.device = shot_info.get("rendering_device", 'GPU') 
+scene.cycles.use_animated_seed = True
 
 # If we're using Cycles; setup compositor to output render passes
 render_passes_db = shot_info.get("render_passes")
