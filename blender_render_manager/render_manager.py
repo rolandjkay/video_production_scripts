@@ -225,7 +225,7 @@ def main(*_args):
         composite_shot(shot_list_db, shot_category, shot_id, quality, slate_number) 
     else:
         print("Unknown command:", command)
-        print("Usage:", "render_manager.py", "[LIST|BUILD]")
+        print("Usage:", "render_manager.py", "[LIST|BUILD|COMPOSITE]")
         
 
 if __name__ == '__main__':
