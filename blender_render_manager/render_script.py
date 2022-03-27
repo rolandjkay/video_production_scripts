@@ -214,6 +214,7 @@ scene.render.engine = {"EEVEE": "BLENDER_EEVEE", "WORKBENCH": "BLENDER_WORKBENCH
 
 # Cycles settings
 scene.cycles.samples = shot_info.get("max_cycles_samples", [256, 1024, 1024, 4096])[quality_index] 
+scene.cycles.use_adaptive_sampling = shot_info.get("use_adaptive_sampling", [True, True, False, False])[quality_index] 
 scene.cycles.use_denoising = parse_boolean(shot_info.get("use_denoising", False))
 scene.cycles.device = shot_info.get("rendering_device", 'GPU') 
 scene.cycles.use_animated_seed = True
