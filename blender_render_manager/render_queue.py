@@ -291,7 +291,7 @@ def render_queue_main(render_queue_state, current_shot_as_lst):
 def compositor_queue_main(render_queue_state, current_shot_as_lst):
 
     # Do any setup of this sub-process; e.g. wrap 'render_queue_state' in a Python object.
-    render_queue, shot_list_db, current_shot = setup_subprocess("render queue", render_queue_state, current_shot_as_lst)
+    render_queue, shot_list_db, current_shot = setup_subprocess("compositor queue", render_queue_state, current_shot_as_lst)
 
 
     while True:
@@ -307,7 +307,7 @@ def compositor_queue_main(render_queue_state, current_shot_as_lst):
 
         logging.info("Shot \"" + shot_to_str(current_shot) + "\" composited; trying next shot...")
 
-        new_shot = get_next_shot(render_queue, current_shot, end_of_queue_sleep_time = 300)
+        current_shot = get_next_shot(render_queue, current_shot, end_of_queue_sleep_time = 300)
 
         # Check for changes in the render queue file.
         render_queue.refresh()
