@@ -56,12 +56,12 @@ def print_table(table):
              )
 
 
-def set_render_resolution(shot_info, quality):
+def set_render_resolution(scene, shot_info, quality):
     import bpy
     
     """Set Blender's render resolution to match that specified in 'shot_info'"""
     quality_index = get_quality_index(quality)
 
-    bpy.context.scene.render.resolution_percentage = shot_info.get("resolution_percentage", [50, 50, 100, 100])[quality_index]
-    bpy.context.scene.render.resolution_x = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[0];
-    bpy.context.scene.render.resolution_y = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[1];
+    scene.render.resolution_percentage = shot_info.get("resolution_percentage", [50, 50, 100, 100])[quality_index]
+    scene.render.resolution_x = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[0];
+    scene.render.resolution_y = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[1];

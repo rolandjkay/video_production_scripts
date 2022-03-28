@@ -8,8 +8,7 @@ import os
 #
 # Add a File Output node to the compositor which writes the requested render passes
 #
-def configure_render_passes(render_passes_db, render_output_path):
-    scene = bpy.data.scenes['Scene']
+def configure_render_passes(scene, render_passes_db, render_output_path):
     view_layer = scene.view_layers[0] # XXX Need to think about files with multiple scenes/view layers!!!
 
     # Make sure the compositor is "using nodes"
@@ -166,15 +165,17 @@ for key, value in shot_info.items():
     print(key + ":", (width - len(key)) * ".",value)
 print()
 
-scene = bpy.data.scenes['Scene']
+# Get the scene name from the shot info, but default to the first scene.
+scene_name = shot_info.get("scene", bpy.data.scenes[0].name)
+scene = bpy.data.scenes[scene_name]
 
 scene.camera = bpy.data.objects[shot_info["camera"]]
 
 # Frame start and end defaults to whatever is in the Blender file
 if "frame_start" in shot_info:
-    bpy.context.scene.frame_start = shot_info["frame_start"]
+    scene.frame_start = shot_info["frame_start"]
 if "frame_end" in shot_info:
-    bpy.context.scene.frame_end = shot_info["frame_end"]
+    scene.frame_end = shot_info["frame_end"]
     
 scene.render.film_transparent = parse_boolean(shot_info.get("film_transparent", False)) 
 scene.render.fps = shot_info.get("fps", 25) 
@@ -205,7 +206,7 @@ else:
 
     filename =  shot_category + "_" + shot_id + "_" + slate_number + "_"
     render_filepath = os.path.join(output_path_base, "slate_%s/" % str(slate_number)) + filename 
-    bpy.context.scene.render.filepath = render_filepath
+    scene.render.filepath = render_filepath
 
 
 # Map EEVEE -> BLENDER_EEVEE and WORKBENCH -> BLENDER_WORKBENCH. Otherwise, use whatever was specified in the shot list.
@@ -223,7 +224,7 @@ scene.cycles.use_animated_seed = True
 render_passes_db = shot_info.get("render_passes")
 if render_passes_db is not None and render_engine == "CYCLES":
     render_dir = os.path.dirname(render_filepath)
-    configure_render_passes(render_passes_db, render_dir)
+    configure_render_passes(scene, render_passes_db, render_dir)
 
 # XXX We haven't thought about how rendering out render passes is going to work with 
 # multiple render later (see below). Probably, we should duplicate the Render Layers

@@ -177,6 +177,10 @@ shot_list_db = shot_list_db.ShotListDb.from_file(shot_list_db_filepath)
 # Look up the shot using category + ID.
 shot_info = shot_list_db.get_shot_info(shot_category, shot_id)
 
+# Get the scene name from the shot info, but default to the first scene.
+scene_name = shot_info.get("scene", bpy.data.scenes[0].name)
+scene = bpy.data.scenes[scene_name]
+
 ##
 ## Figure out the incoming filestub from the shot list DB settings
 ##
@@ -214,12 +218,12 @@ if compositor_chain_db:
 ##
 ## Set render settings
 ##
-bpy.context.scene.render.engine = 'CYCLES'
-bpy.context.scene.cycles.device = 'CPU'
-set_render_resolution(shot_info, quality)
-bpy.context.scene.render.image_settings.file_format = shot_info.get("composite_file_format", "PNG")
-bpy.context.scene.render.image_settings.color_mode = shot_info.get("composite_color_mode", 'RGBA')
-bpy.context.scene.render.image_settings.color_depth = shot_info.get("composite_color_depth", "16")
+scene.render.engine = 'CYCLES'
+scene.cycles.device = 'CPU'
+set_render_resolution(scene, shot_info, quality)
+scene.render.image_settings.file_format = shot_info.get("composite_file_format", "PNG")
+scene.render.image_settings.color_mode = shot_info.get("composite_color_mode", 'RGBA')
+scene.render.image_settings.color_depth = shot_info.get("composite_color_depth", "16")
 
 ##
 ## Some helper functions
@@ -236,10 +240,10 @@ def composite_frame(frame_number):
     setup_compositor_source_image(incoming_frame_filepath(frame_number))
 
     ## Set output
-    bpy.context.scene.render.filepath = outgoing_filestub
+    scene.render.filepath = outgoing_filestub
 
-    bpy.context.scene.frame_start = frame_number
-    bpy.context.scene.frame_end = frame_number
+    scene.frame_start = frame_number
+    scene.frame_end = frame_number
     bpy.ops.render.render(animation=True)
 
 
