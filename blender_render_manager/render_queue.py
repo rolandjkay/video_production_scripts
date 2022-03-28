@@ -216,7 +216,7 @@ def setup_subprocess(subprocess_name, render_queue_state, current_shot_as_lst):
 #   the next one. Or, if the current shot has been removed form the queue, we start again
 #   at the top of the queue.
 #
-def get_next_shot(render_queue, current_shot):
+def get_next_shot(render_queue, current_shot, end_of_queue_sleep_time):
     try:
         # Find current shot
         index = [ i for (i, shot) in enumerate(render_queue.shots) 
@@ -235,8 +235,8 @@ def get_next_shot(render_queue, current_shot):
 
         # Sleep 30 seconds at the end of the queue, just to avoid going round in a hard
         # loop if all the shots have been built.
-        logging.info("Sleeping for 30 seconds...")
-        time.sleep(30)
+        logging.info("Sleeping for %d seconds..." % end_of_queue_sleep_time)
+        time.sleep(end_of_queue_sleep_time)
 
         new_shot = render_queue.shots[0]
 
@@ -279,7 +279,7 @@ def render_queue_main(render_queue_state, current_shot_as_lst):
         else:
             logging.info("Shot \"" + shot_to_str(current_shot) + "\" already built; trying next shot...")
 
-            current_shot = get_next_shot(render_queue, current_shot)
+            current_shot = get_next_shot(render_queue, current_shot, end_of_queue_sleep_time = 30)
 
         # Check for changes in the render queue file.
         render_queue.refresh()
@@ -290,19 +290,24 @@ def render_queue_main(render_queue_state, current_shot_as_lst):
 # This is the main function of the compositor sub-process
 def compositor_queue_main(render_queue_state, current_shot_as_lst):
 
+    # Do any setup of this sub-process; e.g. wrap 'render_queue_state' in a Python object.
     render_queue, shot_list_db, current_shot = setup_subprocess("render queue", render_queue_state, current_shot_as_lst)
 
-    while True:
 
-        render_manager.composite_shot(shot_list_db, current_shot.category,
-                                                    current_shot.id, 
-                                                    render_queue.quality, 
-                                                    current_shot.slate,
-                                                    in_separate_window = True)
+    while True:
+        shot_info = shot_list_db.get_shot_info(current_shot.category, current_shot.id)
+
+        if shot_info.get("compositing_enabled", False):
+            render_manager.composite_shot(shot_list_db,
+                                          current_shot.category,
+                                          current_shot.id, 
+                                          render_queue.quality, 
+                                          current_shot.slate,
+                                          in_separate_window = True)
 
         logging.info("Shot \"" + shot_to_str(current_shot) + "\" composited; trying next shot...")
 
-        new_shot = get_next_shot(render_queue, current_shot)
+        new_shot = get_next_shot(render_queue, current_shot, end_of_queue_sleep_time = 300)
 
         # Check for changes in the render queue file.
         render_queue.refresh()
