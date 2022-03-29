@@ -64,7 +64,7 @@ def configure_render_passes(scene, render_passes_db, render_output_path):
 
     # Denoise data is a but different from the other Render Layers.
     if render_passes_db.get("denoise_data", False):
-        scene.view_layers['ViewLayer'].cycles.denoising_store_passes = True
+        scene.view_layers[0].cycles.denoising_store_passes = True
 
         output_node.file_slots.new("denoise_albedo/denoise_albedo_")
         connect("Denoising Albedo")
@@ -183,10 +183,7 @@ scene.render.use_motion_blur = parse_boolean(shot_info.get("use_motion_blur", Tr
 
 
 # Output settings
-set_render_resolution(shot_info, quality)
-#bpy.context.scene.render.resolution_percentage = shot_info.get("resolution_percentage", [50, 50, 100, 100])[quality_index]
-#bpy.context.scene.render.resolution_x = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[0];
-#bpy.context.scene.render.resolution_y = parse_resolution_string(shot_info.get("target_resolution", "1920x1080"))[1];
+set_render_resolution(scene, shot_info, quality)
 scene.render.image_settings.file_format = shot_info.get("render_file_format", "PNG")
 scene.render.image_settings.color_mode = shot_info.get("render_color_mode", 'RGBA')
 scene.render.image_settings.color_depth = shot_info.get("render_color_depth", "16")
@@ -250,9 +247,11 @@ indirect_collections = shot_info.get("indirect_collections", [])
 for collection_name in indirect_collections:
     # XXX I think this only works for top-level collections; needs to extend this so that config file
     # takes full path in the tree to the collection.
-    layer_collection = bpy.context.view_layer.layer_collection.children[collection_name]
-    bpy.context.view_layer.active_layer_collection = layer_collection
-    bpy.context.view_layer.active_layer_collection.indirect_only = True
+    view_layer = scene.view_layers[0]
+    view_layer.layer_collection.children["Collection"]
+    layer_collection = view_layer.layer_collection.children[collection_name]
+    view_layer.active_layer_collection = layer_collection
+    view_layer.active_layer_collection.indirect_only = True
 
 
 bpy.ops.render.render(animation=True)

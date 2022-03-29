@@ -149,9 +149,12 @@ def verify_shot(shot_list_db, shot_category, shot_id, quality, slate):
     ### XXX We have the same code in render_script.py :/
     shot_info = shot_list_db.get_shot_info(shot_category, shot_id)
 
+    scene_name = shot_info.get("scene", bpy.data.scenes[0].name)
+    scene = bpy.data.scenes[scene_name]
+
     # Use output path override given in the shot list, if given. Otherwise, fallback on eg. Renders/Title/slate_3/...
     if shot_info.get("output_filepath_override"):
-        bpy.context.scene.render.filepath = shot_info.get("output_filepath_override")
+        scene.render.filepath = shot_info.get("output_filepath_override")
     else:
         output_path_base =  os.path.join(shot_list_db.render_root, shot_info["title"])
 
