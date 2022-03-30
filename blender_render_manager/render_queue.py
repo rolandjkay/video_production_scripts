@@ -24,74 +24,6 @@ import os
 logging.basicConfig(level=logging.INFO)
 
 ###
-### Handling clients
-###
-def list_queue(conn, render_queue):
-    conn.send(render_queue)
-
-#def add_job(conn, params, render_queue):
-#    render_queue.append(params)
-#    conn.send(["OK"])
-#
-#def del_job(conn, params, render_queue):
-#    new_render_queue = [ x for x in render_queue if x != params]
-#
-#    n = len(render_queue) == len(new_render_queue)
-#    if n == 0:
-#        conn.send(["NOT FOUND"])
-#    else:
-#        # Tell the client how many we removed
-#        conn.send(["OK", n])
-
-def handle_command(conn, cmd, render_queue):
-    try:
-        c = str(cmd[0]).upper()
-        if c == "LIST":
-            list_queue(conn, render_queue)
-#        elif c == "ADD":
-#            add_job(conn, cmd[1:], render_queue)
-#        elif c == "DEL":
-#            del_job(conn, cmd[1:], render_queue)
-        else:
-            raise ValueError("Unknown command")
-    except IndexError as e:
-        raise ValueError("Invalid cmd") from e
-
-
-def handle_connection(conn, render_queue):
-    try:
-        while True:
-            # Wait for a command
-            cmd = conn.recv()
-            logging.info("Received command: %s", cmd)
-
-            try:
-                handle_command(conn, cmd, render_queue)
-            except Exception:
-                logging.exception("Error handling command: %s", cmd)
-
-    except EOFError:
-        pass # Exit
-
-# familycould be 'AF_INET': TCP
-#                'AF_UNIX': Unix domain socket
-#                'AF_PIPE': Windows named pipe
-address = r"\\.\pipe\RenderQ"
-
-def client_request_handler(render_queue_state):
-
-    # Convert from shared Python primatives to Python object wrappers.
-    render_queue = RenderQueue.from_state(render_queue_state)
-
-    with Listener(address, "AF_PIPE") as listener:
-        while True:
-            logging.info("Waiting for connection...")
-            with listener.accept() as conn:
-                logging.info('Accepted connection')
-                handle_connection(conn, render_queue)
-                logging.info("Client disconnected")
-
-###
 ### The Queue
 ###
 
@@ -332,7 +264,6 @@ if __name__ == '__main__':
         current_shot = manager.list(render_queue.shots[0])
 
         children = []
-       # children.append(Process(target=client_request_handler, args=(render_queue.state,)))
         children.append(Process(target=render_queue_main, args=(render_queue.state, current_shot)))
         children.append(Process(target=compositor_queue_main, args=(render_queue.state, current_shot)))
 
