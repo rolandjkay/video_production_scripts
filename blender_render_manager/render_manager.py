@@ -145,7 +145,7 @@ def composite_shot(shot_list_db, shot_category, shot_id, quality, slate, in_sepa
 
     print("Returned Value: ", res)
 
-def verify_shot(shot_list_db, shot_category, shot_id, quality, slate):
+def verify_shot(shot_list_db, shot_category, shot_id, slate):
 
     ### XXX We have the same code in render_script.py :/
     shot_info = shot_list_db.get_shot_info(shot_category, shot_id)
@@ -159,15 +159,13 @@ def verify_shot(shot_list_db, shot_category, shot_id, quality, slate):
     else:
         output_path_base =  os.path.join(shot_list_db.render_root, shot_info["title"])
 
-#        if slate is None:
-#            slate = find_next_slate_number(output_path_base)
+    filename_stub =  str(shot_category) + "_" + str(shot_id) + "_" + str(slate) + "_"
+    render_path = os.path.join(output_path_base, "slate_%d\\" % slate) + filename_stub
 
-    filename =  str(shot_category) + "_" + str(shot_id) + "_" + str(slate) + "_"
-    render_path = os.path.join(output_path_base, "slate_%d\\" % slate) + filename
 
     ### If the frame range isn't specified, all we can do is check for at least one frame.
     if 'frame_start' in shot_info and 'frame_end' in shot_info:
-        ext = IMAGE_FILE_EXTENSIONS[shot_info.get("output_file_format", "PNG")]
+        ext = IMAGE_FILE_EXTENSIONS[shot_info.get("render_file_format", "PNG")]
         
         for frame in range(shot_info["frame_start"], shot_info["frame_end"]):
             filename = "%04d" % frame + "." + ext
@@ -225,8 +223,32 @@ def main(*_args):
         except ValueError:
             print("Usage:", "render_manager.py", "COMPOSITE", "<category>", "<id>", "<quality: LOW|MEDIUM|HIGH|FINAL>", "slate number") 
             return
-         
+
         composite_shot(shot_list_db, shot_category, shot_id, quality, slate_number) 
+
+    elif command == "VERIFY":
+        try:
+            if len(args) == 3:
+               [shot_category, shot_id, slate] = args
+            else:
+                raise ValueError("Not enough args")
+        except ValueError:
+            print("Usage:", "render_manager.py", "VERIFY", "<category>", "<id>", "slate number") 
+            return
+
+        try:
+            slate_number = int(slate)
+        except ValueError:
+            print("Slate number must be an integer")
+            return
+
+        result = verify_shot(shot_list_db, shot_category, shot_id, slate_number)
+        if result:
+            print("Shot fully rendered")
+        else:
+            print("Render incomplete")
+
+
     else:
         print("Unknown command:", command)
         print("Usage:", "render_manager.py", "[LIST|BUILD|COMPOSITE]")

@@ -199,7 +199,6 @@ def render_queue_main(render_queue_state, current_shot_as_lst):
 
         is_render_complete = render_manager.verify_shot(shot_list_db, current_shot.category,
                                                         current_shot.id, 
-                                                        render_queue.quality, 
                                                         current_shot.slate)
         if not is_render_complete:
             logging.info("Shot \""+ shot_to_str(current_shot) + "\" not rendered; launching Blender...")
