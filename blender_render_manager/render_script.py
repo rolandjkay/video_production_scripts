@@ -259,7 +259,7 @@ def find_env_texture_node():
         return None
 
     for node in scene.world.node_tree.nodes:
-        type(node) is bpy.types.ShaderNodeTexEnvironment::
+        if type(node) is bpy.types.ShaderNodeTexEnvironment:
             return node
 
     return None
