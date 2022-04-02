@@ -118,30 +118,33 @@ def setup_compositor_source_image(src_filepath):
     """Setup the compositor source image node to load the rendered image"""
 
     # First we have to load the source imageinto Blender's data object tree
-    result = bpy.ops.image.open(
-                            directory=os.path.dirname(src_filepath), 
-                            files=[ {"name": os.path.basename(src_filepath)} ],
-                            show_multiview=False
-                        )
+    #result = bpy.ops.image.open(
+    #                        directory=os.path.dirname(src_filepath), 
+    #                        files=[ {"name": os.path.basename(src_filepath)} ],
+    #                        show_multiview=False
+    #                    )
 
-    if result != {'FINISHED'}:
-        raise FileNotFoundError("Failed to load source image sequence for composition")
+    #if result != {'FINISHED'}:
+    #    raise FileNotFoundError("Failed to load source image sequence for composition")
 
-    try:
-        image = bpy.data.images[os.path.basename(src_filepath)]
-    except KeyError as e:
-        raise ValueError("Source image loaded, but not available.")
+    #try:
+    #    image = bpy.data.images[os.path.basename(src_filepath)]
+    #except KeyError as e:
+    #    raise ValueError("Source image loaded, but not available.")
+
+    image = bpy.data.images.load(src_filepath, check_existing = True)
+    scene = bpy.data.scenes[0]
 
     # We expect the compositor node setup to have an Image Sequenece node called "Source Image"
     try:
-        source_image_node = bpy.data.scenes["Scene"].node_tree.nodes["Source Image"]
+        source_image_node = scene.node_tree.nodes["Source Image"]
     except KeyError as e:
         raise ValueError("Compositor missing 'Source Image' node.")
 
     source_image_node.image = image
     image.colorspace_settings.name = 'Raw'
     image.source = 'FILE'
-    bpy.data.scenes["Scene"].node_tree.nodes["Source Image"].layer = 'View Layer'
+    scene.node_tree.nodes["Source Image"].layer = 'View Layer'
     print(src_filepath)
 
 
