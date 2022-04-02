@@ -253,6 +253,28 @@ for collection_name in indirect_collections:
     view_layer.active_layer_collection = layer_collection
     view_layer.active_layer_collection.indirect_only = True
 
+# Replace the world HDRI
+def find_env_texture_node():
+    if scene.world.use_nodes == False:
+        return None
+
+    for node in scene.world.node_tree.nodes:
+        type(node) is bpy.types.ShaderNodeTexEnvironment::
+            return node
+
+    return None
+
+world_hdri_filepath = shot_info.get('world_hdri', None)
+if world_hdri_filepath:
+    # Find the environment texture node
+    env_texture_node = find_env_texture_node()
+    if env_texture_node is None:
+        print("Couldn't set world HDRI; environment texture node not found or nodes not enabled.")
+    else:
+        try:
+            node.image = bpy.data.images.load(world_hdri_filepath, check_existing = True)
+        except RuntimeError as e:
+            print("FAILED to set world HDRI: %s" % str(e))
 
 bpy.ops.render.render(animation=True)
     
