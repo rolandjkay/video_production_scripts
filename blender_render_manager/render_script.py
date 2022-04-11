@@ -74,6 +74,22 @@ def configure_render_passes(scene, render_passes_db, render_output_path):
         connect("Denoising Depth")
 
 
+def set_material_node_properties(props):
+    """ 'props' is a list of arrays of four elements each containing
+         [Material name, node name, input name, value]
+
+        e.g. ['Neoclassical284', 'Hue Saturation Value', 'Saturation', 'default_value' ]
+
+    """
+    for prop in props:
+        try:
+            [material_name, node_name, input_name, default_value] = prop
+            bpy.data.materials[material_name].node_tree.nodes[node_name].inputs[input_name].default_value = default_value
+        except ValueError:
+            print("ERROR: Invalid material node input specification: " + prop)
+
+
+
 # Find the directory where this file (render_manager.py) resides
 # NOTE: This will break if os.chdir() is called before this line runs
 render_script_py_path = os.path.dirname(os.path.realpath(__file__))
@@ -275,6 +291,10 @@ if world_hdri_filepath:
             node.image = bpy.data.images.load(world_hdri_filepath, check_existing = True)
         except RuntimeError as e:
             print("FAILED to set world HDRI: %s" % str(e))
+
+# Override any material node properties.
+# 
+set_material_node_properties(shot_info.get('material_node_overrides', []))
 
 bpy.ops.render.render(animation=True)
     
