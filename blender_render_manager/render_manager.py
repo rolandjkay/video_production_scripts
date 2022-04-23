@@ -167,7 +167,7 @@ def verify_shot(shot_list_db, shot_category, shot_id, slate):
     if 'frame_start' in shot_info and 'frame_end' in shot_info:
         ext = IMAGE_FILE_EXTENSIONS[shot_info.get("render_file_format", "PNG")]
         
-        for frame in range(shot_info["frame_start"], shot_info["frame_end"]):
+        for frame in range(shot_info["frame_start"], shot_info["frame_end"] + 1):
             filename = "%04d" % frame + "." + ext
             if not os.path.exists(render_path + filename):
                 return False
