@@ -203,6 +203,7 @@ set_render_resolution(scene, shot_info, quality)
 scene.render.image_settings.file_format = shot_info.get("render_file_format", "PNG")
 scene.render.image_settings.color_mode = shot_info.get("render_color_mode", 'RGBA')
 scene.render.image_settings.color_depth = shot_info.get("render_color_depth", "16")
+scene.render.image_settings.exr_codec = shot_info.get("render_exr_codec", "DWAA")
 scene.render.use_overwrite = False
 scene.render.use_placeholder = False
 
@@ -239,6 +240,17 @@ if render_passes_db is not None and render_engine == "CYCLES":
     render_dir = os.path.dirname(render_filepath)
     configure_render_passes(scene, render_passes_db, render_dir)
 
+
+# Render region
+#
+render_region = shot_info.get("render_region")
+if render_region:
+    pass
+#    bpy.ops.view3d.render_border(xmin=render_region[0], 
+#                                 xmax=render_region[1], 
+#                                 ymin=render_region[2], 
+#                                 ymax=render_region[3])
+
 # XXX We haven't thought about how rendering out render passes is going to work with 
 # multiple render later (see below). Probably, we should duplicate the Render Layers
 # node and File Output node for every view layer. We'd have to think about how
@@ -257,6 +269,22 @@ if render_passes_db is not None and render_engine == "CYCLES":
 objects_to_hide = shot_info.get("objects_to_hide", [])
 for obj_name in objects_to_hide:
     bpy.data.objects[obj_name].hide_render = True
+
+# Collections to hide in render
+collections_to_hide = shot_info.get("collections_to_hide", [])
+for collection_name in collections_to_hide:
+    bpy.data.collections[collection_name].hide_render = True
+
+# Object to unhide in render
+objects_to_hide = shot_info.get("objects_to_unhide", [])
+for obj_name in objects_to_hide:
+    bpy.data.objects[obj_name].hide_render = False
+
+# Collections to unhide in render
+collections_to_hide = shot_info.get("collections_to_unhide", [])
+for collection_name in collections_to_hide:
+    bpy.data.collections[collection_name].hide_render = False
+
 
 # Collections to set as "indirect only"
 indirect_collections = shot_info.get("indirect_collections", [])
