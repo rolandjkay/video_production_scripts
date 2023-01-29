@@ -14,19 +14,20 @@ class ShotListDb:
     def from_file(cls, filepath):
        try:
            with open(filepath, "r") as file:
-               return cls(json.load(file))
+               return cls(json.load(file), filepath)
        except Exception as e:
            raise IOError("Failed to read shot list") from e
 
-    def __init__(self, db):
-       # Check that we have "project_root" and "render_root"
-       if "project_root" not in db:
+    def __init__(self, db, filepath = None):
+        # Check that we have "project_root" and "render_root"
+        if "project_root" not in db:
            raise ValueError("Shot list db '%s' missing 'project_root' key." % filepath)
 
-       if "render_root" not in db:
+        if "render_root" not in db:
            raise ValueError("Shot list db '%s' missing 'render_root' key." % filepath)
 
-       self._db = db
+        self._filepath = filepath
+        self._db = db
 
     @property
     def project_root(self):
@@ -100,3 +101,8 @@ class ShotListDb:
         else:
             return blend_file
 
+    def refresh(self):
+        """Update from original file; if loaded from file"""
+        if self._filepath:
+           with open(self._filepath, "r") as file:
+               db = json.load(file)
