@@ -245,11 +245,11 @@ if render_passes_db is not None and render_engine == "CYCLES":
 #
 render_region = shot_info.get("render_region")
 if render_region:
-    pass
-#    bpy.ops.view3d.render_border(xmin=render_region[0], 
-#                                 xmax=render_region[1], 
-#                                 ymin=render_region[2], 
-#                                 ymax=render_region[3])
+    scene.render.use_border = True
+    scene.render.border_min_x = render_region[0]
+    scene.render.border_max_x = render_region[1]
+    scene.render.border_min_y = render_region[2]
+    scene.render.border_max_y = render_region[3]
 
 # XXX We haven't thought about how rendering out render passes is going to work with 
 # multiple render later (see below). Probably, we should duplicate the Render Layers
@@ -297,6 +297,29 @@ for collection_name in indirect_collections:
     view_layer.active_layer_collection = layer_collection
     view_layer.active_layer_collection.indirect_only = True
 
+# Mute/unmute compositor nodes
+#
+for node_name in shot_info.get("compositor_nodes_to_mute", []):
+    scene.node_tree.nodes[node_name].mute = True
+
+for node_name in shot_info.get("compositor_nodes_to_unmute", []):
+    scene.node_tree.nodes[node_name].mute = False
+
+# Mute/unmute compositor nodes
+#
+for node_name in shot_info.get("world_shader_nodes_to_mute", []):
+    scene.world.node_tree.nodes[node_name].mute = True
+
+for node_name in shot_info.get("world_shader_nodes_to_unmute", []):
+    scene.world.node_tree.nodes[node_name].mute = False
+
+# Set compositor node attributues
+for node_name, node_attribute_name, node_attribute_value in shot_info.get("set_compositor_node_attributes", []):
+    # Replace any vars in the attribute values
+    node_attribute_value_replaced = node_attribute_value.replace("$RENDER_DIR", os.path.dirname(render_filepath))
+    
+    setattr(scene.node_tree.nodes[node_name], node_attribute_name, node_attribute_value_replaced)
+
 # Replace the world HDRI
 def find_env_texture_node():
     if scene.world.use_nodes == False:
@@ -323,6 +346,12 @@ if world_hdri_filepath:
 # Override any material node properties.
 # 
 set_material_node_properties(shot_info.get('material_node_overrides', []))
+
+# Run script files
+#
+for script_name in shot_info.get("scripts", []):
+    print("Running script '" + script_name + "'")
+    exec(bpy.data.texts[script_name].as_string())
 
 bpy.ops.render.render(animation=True)
     
