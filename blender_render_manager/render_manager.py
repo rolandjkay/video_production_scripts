@@ -16,7 +16,7 @@ from common import *
 
 
 SHOT_LIST_FILEPATH = "blender_shot_list.json"
-BLENDER_ROOT = r"C:\Program Files\Blender Foundation\Blender 3.0"
+BLENDER_ROOT = r"C:\Program Files\Blender Foundation\Blender 3.3"
 RENDER_SCRIPT = "render_script.py"
 COMPOSITOR_SCRIPT = "compositor_script.py"
 
