@@ -16,7 +16,7 @@ from common import *
 
 
 SHOT_LIST_FILEPATH = "blender_shot_list.json"
-BLENDER_ROOT = r"C:\Program Files\Blender Foundation\Blender 3.3"
+BLENDER_ROOT = r"C:\Program Files\Blender Foundation\Blender 3.4"
 RENDER_SCRIPT = "render_script.py"
 COMPOSITOR_SCRIPT = "compositor_script.py"
 
@@ -94,7 +94,7 @@ def build_shot(shot_list_db, shot_category, shot_id, quality, slate, in_separate
 
     build_cmd = " ".join((["start", '"Renderer"', '/wait'] if in_separate_window else [])
                          +
-                         ['"' + os.path.join(BLENDER_ROOT, "blender") + '"', 
+                         ['"' + os.path.join(BLENDER_ROOT, "blender.exe") + '"', 
                           "-b", '"' + blend_file + '"', 
                           "--python", '"' + os.path.join(render_manager_py_path, RENDER_SCRIPT) + '"', 
                           "--",
@@ -125,7 +125,7 @@ def composite_shot(shot_list_db, shot_category, shot_id, quality, slate, in_sepa
 
     compositor_cmd = " ".join((["start", '"Compositor"', '/wait'] if in_separate_window else [])
                               +
-                              ['"' + os.path.join(BLENDER_ROOT, "blender") + '"', 
+                              ['"' + os.path.join(BLENDER_ROOT, "blender.exe") + '"', 
                                "-b", '"' + DEFAULT_COMPOSITOR_CHAIN + '"', 
                                "--python", '"' + os.path.join(render_manager_py_path, COMPOSITOR_SCRIPT) + '"', 
                                "--",
