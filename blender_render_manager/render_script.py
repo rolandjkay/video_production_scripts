@@ -3,6 +3,7 @@ import mathutils
 import sys
 import copy
 import os
+import re
 
 
 #
@@ -305,7 +306,7 @@ for node_name in shot_info.get("compositor_nodes_to_mute", []):
 for node_name in shot_info.get("compositor_nodes_to_unmute", []):
     scene.node_tree.nodes[node_name].mute = False
 
-# Mute/unmute compositor nodes
+# Mute/unmute world-shader nodes
 #
 for node_name in shot_info.get("world_shader_nodes_to_mute", []):
     scene.world.node_tree.nodes[node_name].mute = True
@@ -319,6 +320,53 @@ for node_name, node_attribute_name, node_attribute_value in shot_info.get("set_c
     node_attribute_value_replaced = node_attribute_value.replace("$RENDER_DIR", os.path.dirname(render_filepath))
     
     setattr(scene.node_tree.nodes[node_name], node_attribute_name, node_attribute_value_replaced)
+
+# If the shot specified a list of view layers, then enable only those specified.
+view_layers = shot_info.get("view_layers", [])
+if view_layers:
+    for vl in scene.view_layers:
+        vl.use = False 
+    for vl_name in view_layers:
+        scene.view_layers[vl_name].use = True
+
+
+# If we're using the Nuke workflow, then use the same logic as the Nuke Export 
+# Panel to set the render filepath and enable the File Output nodes before
+# rendering
+#
+# XXX Should share code here with the addon.
+if shot_info.get("use_nuke_export_nodes", False):
+    try:
+        render_directory = scene.render_directory
+    except AttributeError:
+        print("Couldn't get render directroy; is addon installed?")
+        exit()
+
+    # Update the default Blender output path based on our settings.
+    #
+    scene.render.filepath = os.path.join(scene.render_directory, 
+                                         scene.shot_name,
+                                         ("slate %d" % scene.slate_number),
+                                          scene.shot_name.replace("_","") + "_s" + str(scene.slate_number) + "_"
+                                         )
+
+    # We capture to proceeding '/' or '\' and reproduce it in the replacement
+    # string to, anally, avoid changing anything.
+    def repl(m):
+        path_sep = m.group(1)
+        path_sep_end = m.group(2)
+        return (path_sep + "slate %d" + path_sep_end) % scene.slate_number
+
+    # set the base path for all file output nodes to filename:
+    for node in scene.node_tree.nodes:
+        if node.type == 'OUTPUT_FILE':
+            node.base_path = re.sub("([\\\/])slate [0-9]+([\\\/])", repl, node.base_path) 
+            node.base_path = re.sub("_s[0-9]+_", "_s" + str(scene.slate_number) + "_", node.base_path) 
+
+            # Enable node
+            node.mute = False
+
+
 
 # Replace the world HDRI
 def find_env_texture_node():
