@@ -155,17 +155,19 @@ def create_multi_exposure_group(scene):
     return group
        
     
-def setup_nodes(scene, view_layer_name, base_path):
+def setup_nodes(scene, view_layer_name, image_base_path, data_base_path):
     """Setup and connect all the nodes needed to export multi-layer EXR for Nuke"""
     
     # Create a group that controls the exposure on multiple channels
     create_multi_exposure_group(scene)
     
     render_layers_node = scene.node_tree.nodes.new("CompositorNodeRLayers")
-    file_output_node = create_file_output_node(scene, base_path)
-    data_output_node = create_data_output_node(scene, base_path)
+    file_output_node = create_file_output_node(scene, image_base_path)
+    data_output_node = create_data_output_node(scene, data_base_path)
+    
     multi_exposure_node = scene.node_tree.nodes.new("CompositorNodeGroup")
     multi_exposure_node.node_tree = bpy.data.node_groups["RJK_MultiExposure"]
+    multi_exposure_node.name = "RJK_MultiExposure"
     
     render_layers_node.layer = view_layer_name
     
@@ -236,7 +238,7 @@ def setup_nodes(scene, view_layer_name, base_path):
     # - https://blender.stackexchange.com/questions/39127/how-to-put-together-a-driver-with-python#39129
     # - https://docs.blender.org/api/current/bpy.types.DriverTarget.html
     #
-    d = scene.node_tree.nodes["Group"].inputs["Exposure"].driver_add("default_value").driver
+    d = multi_exposure_node.inputs["Exposure"].driver_add("default_value").driver
     v = d.variables.new()
     v.name = "exposure"
     v.targets[0].id_type = "SCENE"
@@ -245,19 +247,24 @@ def setup_nodes(scene, view_layer_name, base_path):
     d.expression = "exposure"
     
 
-def create_nuke_export_compositor_nodes_for_view_layer(view_layer_name, shot_name, slate_number):
+def create_nuke_export_compositor_nodes_for_view_layer(render_dir, view_layer_name, shot_name, slate_number):
     scene = bpy.data.scenes[0]    
-
-    scene.render.filepath
-    
 
     # Compile render output directory
     view_layer_sub_dir_name = (view_layer_name[3:] if view_layer_name.startswith("RL_") else view_layer_name).lower()
-    base_path = os.path.join(scene.render.filepath, 
+    base_path = os.path.join(render_dir, 
+                             shot_name,
                              "slate %s" % slate_number, 
-                             view_layer_sub_dir_name, 
-                             shot_name.replace("_","") +"_" + view_layer_sub_dir_name.replace("_","") + "_"
+                             view_layer_sub_dir_name
                             )
+
+    image_base_path = os.path.join(base_path,
+                                   shot_name.replace("_","") +"_" + view_layer_sub_dir_name.replace("_","") + "_s" + str(slate_number) + "_"
+                                  )
+
+    data_base_path = os.path.join(base_path,
+                                   shot_name.replace("_","") +"_" + view_layer_sub_dir_name.replace("_","") + "_data_s" + str(slate_number) + "_"
+                                  )
 
 
     scene.use_nodes = True
@@ -270,7 +277,7 @@ def create_nuke_export_compositor_nodes_for_view_layer(view_layer_name, shot_nam
     turn_on_aovs(scene, view_layer_name)
 
     print("Setting up nodes")
-    setup_nodes(scene, view_layer_name, base_path)
+    setup_nodes(scene, view_layer_name, image_base_path, data_base_path)
 
 
 #scene = bpy.data.scenes[0]    
