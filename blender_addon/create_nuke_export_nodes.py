@@ -29,7 +29,7 @@ def turn_on_aovs(scene, view_layer_name):
     view_layer.use_pass_position = True
     view_layer.use_pass_normal = True
 
-def create_file_output_node(scene, base_path):
+def create_file_output_node(scene, base_path, view_layer_name):
     """Create a file output node to export the image (i.e. not data) layers
     
     These layers can be compressed with DWAA compression.
@@ -64,10 +64,13 @@ def create_file_output_node(scene, base_path):
     
     file_output_node.base_path = base_path
 
+    # Setup custom attributes for the render manager
+    file_output_node["nuke_view_layer_name"] = view_layer_name
+    file_output_node["nuke_node_type"] = "image"
     
     return file_output_node
     
-def create_data_output_node(scene, base_path):
+def create_data_output_node(scene, base_path, view_layer_name):
     """Create a file output node to export the data (i.e. non-image data) layers
     
     These layers must be compressed with a lossless compression algo.
@@ -91,6 +94,10 @@ def create_data_output_node(scene, base_path):
     data_output_node.format.linear_colorspace_settings.name = "Linear"
     
     data_output_node.base_path = base_path
+
+    # Setup custom attributes for the render manager
+    data_output_node["nuke_view_layer_name"] = view_layer_name
+    data_output_node["nuke_node_type"] = "data"
     
     return data_output_node
 
@@ -162,8 +169,8 @@ def setup_nodes(scene, view_layer_name, image_base_path, data_base_path):
     create_multi_exposure_group(scene)
     
     render_layers_node = scene.node_tree.nodes.new("CompositorNodeRLayers")
-    file_output_node = create_file_output_node(scene, image_base_path)
-    data_output_node = create_data_output_node(scene, data_base_path)
+    file_output_node = create_file_output_node(scene, image_base_path, view_layer_name)
+    data_output_node = create_data_output_node(scene, data_base_path, view_layer_name)
     
     multi_exposure_node = scene.node_tree.nodes.new("CompositorNodeGroup")
     multi_exposure_node.node_tree = bpy.data.node_groups["RJK_MultiExposure"]
@@ -172,9 +179,6 @@ def setup_nodes(scene, view_layer_name, image_base_path, data_base_path):
     render_layers_node.layer = view_layer_name
     
     links = scene.node_tree.links
-    
-    for x in render_layers_node.outputs: 
-         print(x.name)
 
     links.new(multi_exposure_node.inputs["rgba"], render_layers_node.outputs["Image"])
     links.new(multi_exposure_node.inputs["diffuse_direct"], render_layers_node.outputs["DiffDir"])
