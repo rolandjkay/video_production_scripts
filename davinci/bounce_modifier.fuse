@@ -1,0 +1,191 @@
+--[[
+
+ This is an extended version of the Wave Modifier
+ So all credit to goes the great eyeon Team for this modifier
+
+ Added : Delay Start Time
+ Added : Reverse 
+ Written by Dunn Lewis <dunn[dot]lewis[dot]work[at]gmail[dot]com>
+
+]]--
+
+version = "v1.01 - 16 JAN 2018"
+
+
+FuRegisterClass("Bounce", CT_Modifier, {
+	REGS_Name = "BounceAnimation",
+	REGS_Category = "Modifiers",
+	REGS_OpIconString = "Bce",
+	REGS_OpDescription = "Bounce Animation Modifier",
+	REGS_Company 		= "Roland Kay",
+	REGS_URL 			= "",
+	REG_OpNoMask = true,
+	REG_NoBlendCtrls = true,
+	REG_NoObjMatCtrls = true,
+	REG_NoMotionBlurCtrls = true,
+	REG_TimeVariant = true,
+	REGID_DataType = "Number",
+	REGID_InputDataType = "Number",
+	REG_Version = 101,
+	})
+
+
+BAM_GravAcc = "GravAcc"
+BAM_Elasticity = "Elasticity"
+BAM_LaunchSpeed = "LaunchSpeed"
+BAM_ScreenHeight = "ScreenHeight"
+
+
+function Create()
+
+	InG = self:AddInput("Gavitational Acceleration", "GravAcc", {
+		LINKID_DataType =		"Number",
+		INPID_InputControl =	"SliderControl",
+		INP_Default =			9.8,
+		INP_MinAllowed =		0,
+		INP_MaxScale =			100.0,
+		INP_Integer = 			false,
+				})
+
+	InE = self:AddInput("Elasticity", "Elasticity", {
+		LINKID_DataType =		"Number",
+		INPID_InputControl =	"SliderControl",
+		INP_Default =			0.6,
+		INP_MinAllowed =		0,
+		INP_MaxScale =			100.0,
+		INP_Integer = 			false,
+				})
+
+	InLaunchSpeed= self:AddInput("Launch Speed", "LaunchSpeed", {
+		LINKID_DataType =		"Number",
+		INPID_InputControl =	"SliderControl",
+		INP_Default =			10.0,
+		INP_MinAllowed =		0,
+		INP_MaxScale =			1000.0,
+		INP_Integer = 			false,
+				})
+
+	InScreenHeight= self:AddInput("Screen Height", "ScreenHeight", {
+		LINKID_DataType =		"Number",
+		INPID_InputControl =	"SliderControl",
+		INP_Default =			10.0,
+		INP_MinAllowed =		0,
+		INP_MaxScale =			1000.0,
+		INP_Integer = 			false,
+				})
+
+	InStartFrame= self:AddInput("Start Frame", "StartFrame", {
+		LINKID_DataType =		"Number",
+		INPID_InputControl =	"SliderControl",
+		INP_Default =			0,
+		INP_MinAllowed =		0,
+		INP_MaxScale =			10000.0,
+		INP_Integer = 			true,
+				})
+
+	InPlaySpeed = self:AddInput("Play Speed", "PlaySpeed", {
+		LINKID_DataType =		"Number",
+		INPID_InputControl =	"SliderControl",
+		INP_Default =			1.0,
+		INP_MinAllowed =		-10.0,
+		INP_MaxScale =			10.0,
+		INP_Integer = 			false,
+				})
+
+	InY = self:AddInput("Y", "Y", {
+		LINKID_DataType =		"Number",
+		INPID_InputControl =	"SliderControl",
+		INP_Default =			0.5,
+		INP_MinAllowed =		-2.0,
+		INP_MaxScale =			2.0,
+		INP_Integer = 			false,
+				})
+
+	--[[
+	  IMPROVMENT: It would be good to publish a second output which represents
+	              the 'squash factor' needed to simulate th eanimated object
+	              compressing as it hits the floor. This needs to be a 
+	              'chinese hat' function centred around the frame where the
+	              object touches the ground with the magnitude of the hat
+	              proportional to 2*c_i ; i.e. the acceleration required to
+	              reverse its velocity.
+	]]
+
+	OutResult = self:AddOutput("Result", "Result", {
+		LINKID_DataType = "Number",
+		LINK_Main = 1
+		})				
+end
+
+
+--//----------------------------------------------
+
+function Process(req) 
+	--[[
+
+	We consider a projectile launched vertically at speed 'c'. It will fly up
+	until it stops and then come back down again and hits the ground at speed
+	'c' (since there is no air resistance). It will rebound at speed 'e*c',
+	where 'e' is the elasticity constant. In each bounce, the height is given
+	by
+	               2
+	    y = -0.5 gt  + ct
+	 
+	The initial speed of the ith bounce is c_i = ce^i (i=0 for first bounce)
+
+	Therefore, the animation curve for the ith bounce is given by
+
+	    y = -0.5 gt_i^2 + c_i t_i [A]
+
+	where t_i is the time for which t_i=0 is the time of the start of the bounce
+
+	We can triviall work out that the duration of the ith bounce is given by
+
+	T_i = 2c_i / g = 2ce^i / g
+
+
+	Ie. the bounce durations form a gerometric progression. 
+
+	We need to figure out which bounce we are in in order to calculate t_i
+	and c_i and then we can just return a value of y using formula [A]
+
+	]]
+	local g = InG:GetValue(req).Value
+	local c = InLaunchSpeed:GetValue(req).Value
+	local e = InE:GetValue(req).Value
+	local screen_height = InScreenHeight:GetValue(req).Value
+	local fps = self.Comp:GetPrefs("Comp.FrameFormat.Rate")
+	local start_frame = InStartFrame:GetValue(req).Value
+	local play_speed = InPlaySpeed:GetValue(req).Value
+	local Y = InY:GetValue(req).Value -- Vertical position of animation
+
+	-- Add half the first bounce size to 't' so that we start the animation
+	-- at the highest point, rather than the floor.
+	-- max() holds us at the top of the bounce until the animation starts.
+	local t = math.max((req.Time - start_frame) * play_speed / fps + c/g, c/g)
+
+
+	-- Loop subtracting 2c_i/g from 't' until doing so would make 't' negative
+	local i = 0
+	local ci = c
+
+	while ((t - 2*ci/g) > 0)
+	do
+		t = t - 2*ci/g
+		ci = ci * e
+		i = i + 1
+
+		-- Once the motion is almost completely damped, stay on the ground
+		if (ci < 0.1)
+		then
+			OutResult:Set(req, Number(Y))
+			return
+		end
+	end
+
+	local y = (-0.5 * g * t*t + ci*t) / screen_height + Y
+
+--//----------------------------------------------	
+
+	OutResult:Set(req, Number(y))
+end
