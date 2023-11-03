@@ -3,6 +3,7 @@ import mathutils
 import sys
 import copy
 import os
+import re
 
 
 #
@@ -212,7 +213,13 @@ if shot_info.get("output_filepath_override"):
     render_filepath = shot_info.get("output_filepath_override")
     scene.render.filepath = render_filepath
 else:
-    output_path_base =  os.path.join(shot_list_db.render_root, shot_info["title"])
+    # Backwards compatble with files that use 'title' instead of 'shot_name'
+    shot_name = shot_info.get("shot_name")
+    if not shot_name:
+        shot_name = shot_info["title"]
+
+    output_path_base =  os.path.join(shot_list_db.render_root, shot_name)
+
 
 #    if slate_number is None:
 #        slate_number = find_next_slate_number(output_path_base)
@@ -232,7 +239,7 @@ scene.cycles.samples = shot_info.get("max_cycles_samples", [256, 1024, 1024, 409
 scene.cycles.use_adaptive_sampling = shot_info.get("use_adaptive_sampling", [True, True, False, False])[quality_index] 
 scene.cycles.use_denoising = parse_boolean(shot_info.get("use_denoising", False))
 scene.cycles.device = shot_info.get("rendering_device", 'GPU') 
-scene.cycles.use_animated_seed = True
+scene.cycles.use_animated_seed = shot_info.get("use_animated_seed", False) 
 
 # If we're using Cycles; setup compositor to output render passes
 render_passes_db = shot_info.get("render_passes")
@@ -305,7 +312,7 @@ for node_name in shot_info.get("compositor_nodes_to_mute", []):
 for node_name in shot_info.get("compositor_nodes_to_unmute", []):
     scene.node_tree.nodes[node_name].mute = False
 
-# Mute/unmute compositor nodes
+# Mute/unmute world-shader nodes
 #
 for node_name in shot_info.get("world_shader_nodes_to_mute", []):
     scene.world.node_tree.nodes[node_name].mute = True
@@ -319,6 +326,88 @@ for node_name, node_attribute_name, node_attribute_value in shot_info.get("set_c
     node_attribute_value_replaced = node_attribute_value.replace("$RENDER_DIR", os.path.dirname(render_filepath))
     
     setattr(scene.node_tree.nodes[node_name], node_attribute_name, node_attribute_value_replaced)
+
+# If the shot specified a list of view layers, then enable only those specified.
+view_layers = shot_info.get("view_layers", [])
+if view_layers:
+    for vl in scene.view_layers:
+        vl.use = False 
+    for vl_name in view_layers:
+        scene.view_layers[vl_name].use = True
+
+##########################################################
+##########################################################
+## Nuke workflow
+##########################################################
+##########################################################
+# XXX Should share code here with the addon.
+if shot_info.get("use_nuke_workflow", False):
+
+    # Use the same logic as the Nuke Export 
+    # Panel to set the render filepath and enable the File Output nodes before
+    # rendering
+    try:
+        render_directory = scene.render_directory
+    except AttributeError:
+        print("Couldn't get render directroy; is addon installed?")
+        exit()
+
+    # Update the default Blender output path based on our settings.
+    #
+    scene.render.filepath = os.path.join(render_directory, 
+                                         shot_info["shot_name"],
+                                         ("slate %s" % slate_number),
+                                          shot_info["shot_name"].replace("_","") + "_s" + str(slate_number) + "_"
+                                         )
+
+    # We capture to proceeding '/' or '\' and reproduce it in the replacement
+    # string to, anally, avoid changing anything.
+    def repl(m):
+        path_sep = m.group(1)
+        path_sep_end = m.group(2)
+        return (path_sep + "slate %d" + path_sep_end) % slate_number
+
+    # set the base path for all file output nodes to filename:
+    for node in scene.node_tree.nodes:
+        if node.type == 'OUTPUT_FILE':
+            nuke_view_layer_name = node.get("nuke_view_layer_name")
+            nuke_node_type = node.get("nuke_node_type")
+
+            # If we have one but not the other of the custom attributes, then it's a mistake.
+            # If we have neither, then we assume this node is not releated to the Nuke export.
+            if not nuke_view_layer_name ^ nuke_node_type:
+                raise AttributeError("Nuke export File output node not correctly setup.")
+
+            if nuke_view_layer_name:                
+                node.base_path = os.path.join(render_directory, 
+                                              shot_info["shot_name"], 
+                                              "slate %s" % slate_number, 
+                                              nuke_view_layer_name.lower(), 
+                                              shot_info["shot_name"] + "_" + 
+                                              nuke_view_layer_name.lower() + "_" + 
+                                              ("" if nuke_node_type == "image" else (nuke_node_type + "_")) + 
+                                              ("s%s"%slate_number) + "_"
+                                              )
+
+                # Enable node
+                node.mute = False
+            else:
+                # Disable any File Output nodes that weren't created by the addon.
+                node.mute = True
+
+    # Set the preview output directory (overrides anything set above)
+    scene.render.filepath = os.path.join(render_directory, 
+                                         shot_info["shot_name"], 
+                                         "slate %s" % slate_number, 
+                                         shot_info["shot_name"] + "_" + nuke_view_layer_name.lower() + "_" + ("s%s"%slate_number)
+                                        )
+
+    # Set preview file format (we smaller the better as this is jsut a preview and to act as placeholders)
+    scene.render.image_settings.file_format = "JPEG"
+    scene.render.image_settings.color_mode = "RGB"
+    scene.render.image_settings.color_depth = "8"
+
+
 
 # Replace the world HDRI
 def find_env_texture_node():
