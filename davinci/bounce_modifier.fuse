@@ -9,7 +9,126 @@
 
 ]]--
 
-version = "v1.01 - 16 JAN 2018"
+version = "v1.00 - 10 NOV 2023"
+
+--[[
+     Compute the height of the bounce at given frame
+     
+     This is not optimal if you want to draw the entire animation curve
+     because, at each call, we have to search to find out which bounce
+     we are in.
+
+     It makes sense to call this to get samples from the curve at
+     arbitrary frames. We're planning to write a function that will
+     generate the entire curve in a single operation.
+  ]]
+function bounce_get_height_at_t(g, 
+	                            launch_speed, 
+	                            elasticity, 
+	                            screen_height, 
+	                            fps, 
+	                            start_frame, 
+	                            play_speed, 
+	                            floor_height, 
+	                            frame_num) 
+	--[[
+
+	We consider a projectile launched vertically at speed 'c'. It will fly up
+	until it stops and then come back down again and hits the ground at speed
+	'c' (since there is no air resistance). It will rebound at speed 'e*c',
+	where 'e' is the elasticity constant. In each bounce, the height is given
+	by
+	               2
+	    y = -0.5 gt  + ct
+	 
+	The initial speed of the ith bounce is c_i = ce^i (i=0 for first bounce)
+
+	Therefore, the animation curve for the ith bounce is given by
+
+	    y = -0.5 gt_i^2 + c_i t_i [A]
+
+	where t_i is the time for which t_i=0 is the time of the start of the bounce
+
+	We can triviall work out that the duration of the ith bounce is given by
+
+	T_i = 2c_i / g = 2ce^i / g
+
+
+	Ie. the bounce durations form a gerometric progression. 
+
+	We need to figure out which bounce we are in in order to calculate t_i
+	and c_i and then we can just return a value of y using formula [A]
+
+	]]
+	local c = launch_speed
+	local e = elasticity
+
+	-- Add half the first bounce size to 't' so that we start the animation
+	-- at the highest point, rather than the floor.
+	-- max() holds us at the top of the bounce until the animation starts.
+	local t = math.max((frame_num - start_frame) * play_speed / fps + c/g, c/g)
+
+
+	-- Loop subtracting 2c_i/g from 't' until doing so would make 't' negative
+	local i = 0
+	local ci = c
+
+	while ((t - 2*ci/g) > 0)
+	do
+		t = t - 2*ci/g
+		ci = ci * e
+		i = i + 1
+
+		-- Once the motion is almost completely damped, stay on the ground
+		if (ci < 0.1)
+		then
+			return floor_height
+		end
+	end
+
+	local y = (-0.5 * g * t*t + ci*t) / screen_height + floor_height
+
+	return y
+end
+
+function bounce_build_animation_curve(g, 
+                                      launch_speed, 
+                                      elasticity,
+                                      fps,
+                                      play_speed)
+	local c = launch_speed
+	local e = elasticity
+	local curve = {}
+
+
+	local ci = c
+	local bounce_start = 0
+	local count = 0
+	local frame_num
+
+	-- 'count' is just there as an infinite loop guard
+	while (ci > 0.1) and count < 10
+	do
+		local num_frames = math.floor(2*ci/g * fps / play_speed)
+		for frame_num = 0, num_frames - 1, 1
+		do
+			t = frame_num *1.0 / fps * play_speed
+			curve[frame_num + bounce_start] = (-0.5 * g * t*t + ci*t)
+			--print(frame_num, bounce_start)
+		end
+
+		bounce_start = bounce_start + num_frames
+		ci = ci * e
+		count = count + 1
+	end
+
+
+	return curve
+end
+
+
+
+--//-- Fusion API functions.
 
 
 FuRegisterClass("Bounce", CT_Modifier, {
@@ -45,6 +164,7 @@ function Create()
 		INP_MinAllowed =		0,
 		INP_MaxScale =			100.0,
 		INP_Integer = 			false,
+		INP_DoNotifyChanged = true,
 				})
 
 	InE = self:AddInput("Elasticity", "Elasticity", {
@@ -52,8 +172,9 @@ function Create()
 		INPID_InputControl =	"SliderControl",
 		INP_Default =			0.6,
 		INP_MinAllowed =		0,
-		INP_MaxScale =			100.0,
+		INP_MaxScale =			1.0,
 		INP_Integer = 			false,
+		INP_DoNotifyChanged = true,
 				})
 
 	InLaunchSpeed= self:AddInput("Launch Speed", "LaunchSpeed", {
@@ -63,6 +184,7 @@ function Create()
 		INP_MinAllowed =		0,
 		INP_MaxScale =			1000.0,
 		INP_Integer = 			false,
+		INP_DoNotifyChanged = true,
 				})
 
 	InScreenHeight= self:AddInput("Screen Height", "ScreenHeight", {
@@ -90,6 +212,7 @@ function Create()
 		INP_MinAllowed =		-10.0,
 		INP_MaxScale =			10.0,
 		INP_Integer = 			false,
+		INP_DoNotifyChanged = true,
 				})
 
 	InY = self:AddInput("Y", "Y", {
@@ -114,42 +237,59 @@ function Create()
 	OutResult = self:AddOutput("Result", "Result", {
 		LINKID_DataType = "Number",
 		LINK_Main = 1
-		})				
+		})
 end
 
 
 --//----------------------------------------------
 
+--[[
+
+WE TRIED PRECACHING THE ANIMATION DATA, BUT IT SEEMS
+THAT DATA CREATED HERE CANNOT BE ACCESSED BY Process()
+AND, IN ANY CASE, USING A SIMPLE FUNCTION LIKE SIN(X)
+DIDN'T SEEM ANY FASTER THAN OUR IMPLEMENTATION.
+
+function NotifyChanged(inp, param, time)
+	print("Setting bar")
+	InFoo["bar"] = "bar"
+
+	if inp == InG then
+		params["g"] = param.Value
+	end
+	if inp == InE then
+		params["e"] = param.Value 
+	end
+	if inp == InLaunchSpeed then
+		params["c"] = param.Value 
+	end
+	if inp == InPlaySpeed then
+		params["play_speed"] = param.Value 
+	end
+
+	print("--")
+	for k,v in pairs(params) do
+		print(k,v)
+	end
+
+
+	if params["g"] ~= nil and params["e"] ~= nil and params["c"] ~= nil and params["play_speed"] ~= nil then
+		local fps = self.Comp:GetPrefs("Comp.FrameFormat.Rate")
+
+		AnimationData = bounce_build_animation_curve(params["g"], 
+		                                             params["c"], 
+		                                             params["e"],
+		                                             fps,
+		                                             params["play_speed"])
+
+		for k,v in pairs(AnimationData) do
+			print(k,v)
+		end
+		print(AnimationData)
+	end
+end]]
+
 function Process(req) 
-	--[[
-
-	We consider a projectile launched vertically at speed 'c'. It will fly up
-	until it stops and then come back down again and hits the ground at speed
-	'c' (since there is no air resistance). It will rebound at speed 'e*c',
-	where 'e' is the elasticity constant. In each bounce, the height is given
-	by
-	               2
-	    y = -0.5 gt  + ct
-	 
-	The initial speed of the ith bounce is c_i = ce^i (i=0 for first bounce)
-
-	Therefore, the animation curve for the ith bounce is given by
-
-	    y = -0.5 gt_i^2 + c_i t_i [A]
-
-	where t_i is the time for which t_i=0 is the time of the start of the bounce
-
-	We can triviall work out that the duration of the ith bounce is given by
-
-	T_i = 2c_i / g = 2ce^i / g
-
-
-	Ie. the bounce durations form a gerometric progression. 
-
-	We need to figure out which bounce we are in in order to calculate t_i
-	and c_i and then we can just return a value of y using formula [A]
-
-	]]
 	local g = InG:GetValue(req).Value
 	local c = InLaunchSpeed:GetValue(req).Value
 	local e = InE:GetValue(req).Value
@@ -159,33 +299,15 @@ function Process(req)
 	local play_speed = InPlaySpeed:GetValue(req).Value
 	local Y = InY:GetValue(req).Value -- Vertical position of animation
 
-	-- Add half the first bounce size to 't' so that we start the animation
-	-- at the highest point, rather than the floor.
-	-- max() holds us at the top of the bounce until the animation starts.
-	local t = math.max((req.Time - start_frame) * play_speed / fps + c/g, c/g)
 
-
-	-- Loop subtracting 2c_i/g from 't' until doing so would make 't' negative
-	local i = 0
-	local ci = c
-
-	while ((t - 2*ci/g) > 0)
-	do
-		t = t - 2*ci/g
-		ci = ci * e
-		i = i + 1
-
-		-- Once the motion is almost completely damped, stay on the ground
-		if (ci < 0.1)
-		then
-			OutResult:Set(req, Number(Y))
-			return
-		end
-	end
-
-	local y = (-0.5 * g * t*t + ci*t) / screen_height + Y
-
---//----------------------------------------------	
+	local y = bounce_get_height_at_t(g, c, e,
+	                                 screen_height, 
+	                                 fps, 
+	                                 start_frame, 
+	                                 play_speed, 
+	                                 Y, 
+	                                 req.Time) 
 
 	OutResult:Set(req, Number(y))
+
 end
