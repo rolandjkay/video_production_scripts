@@ -23,13 +23,16 @@ version = "v1.00 - 10 NOV 2023"
      generate the entire curve in a single operation.
   ]]
 function bounce_get_height_at_t(g, 
-	                            launch_speed, 
+	                            launch_speed,
+	                            -- takes precendence if not nil
+	                            drop_height,    
 	                            elasticity, 
 	                            screen_height, 
 	                            fps, 
 	                            start_frame, 
 	                            play_speed, 
-	                            floor_height, 
+	                            floor_height,
+	                            is_from_ground, 
 	                            frame_num) 
 	--[[
 
@@ -60,14 +63,28 @@ function bounce_get_height_at_t(g,
 	and c_i and then we can just return a value of y using formula [A]
 
 	]]
-	local c = launch_speed
+	local c
+	if drop_height ~= nil then
+		c = math.sqrt(2.0*drop_height * g) 
+	else
+		c = launch_speed
+	end
 	local e = elasticity
+
+	local offset = nil
+	if is_from_ground then
+		offset = 0
+	else
+		offset = c/g 
+	end
 
 	-- Add half the first bounce size to 't' so that we start the animation
 	-- at the highest point, rather than the floor.
 	-- max() holds us at the top of the bounce until the animation starts.
-	local t = math.max((frame_num - start_frame) * play_speed / fps + c/g, c/g)
-
+	-- [If we're launching from the ground, 'offset' is zero, otherwise
+	--  we set it to c/g
+	-- ]
+	local t = math.max((frame_num - start_frame) * play_speed / fps + offset, offset)
 
 	-- Loop subtracting 2c_i/g from 't' until doing so would make 't' negative
 	local i = 0
@@ -82,15 +99,34 @@ function bounce_get_height_at_t(g,
 		-- Once the motion is almost completely damped, stay on the ground
 		if (ci < 0.1)
 		then
-			return floor_height
+			return {floor_height, 0, i+1}
 		end
 	end
 
+	-- Height
 	local y = (-0.5 * g * t*t + ci*t) / screen_height + floor_height
 
-	return y
+	-- Distance from the centre of the bounce, in units of the bounce widht;
+	-- the can be useful for timing other animations to sync with the bounce,
+	-- e.g. having the object squash as it hits the floor.
+	-- local distance = (0.5*t*g/ci - 0.5)
+	local distance = t - ci/g
+
+	local bounce_num 
+	if frame_num < start_frame then 
+		bounce_num = 0
+	else
+		bounce_num = i + 1
+	end
+
+	return {y, bounce_num, distance}
 end
 
+-- Generates the whole animation curve in one go.
+-- - This isn't actually used, because we couldn't get generation 
+--   of the curve in the fuse's NotifyChange method to work and
+--   it also didn't look like it would be faster.
+--
 function bounce_build_animation_curve(g, 
                                       launch_speed, 
                                       elasticity,
@@ -114,7 +150,6 @@ function bounce_build_animation_curve(g,
 		do
 			t = frame_num *1.0 / fps * play_speed
 			curve[frame_num + bounce_start] = (-0.5 * g * t*t + ci*t)
-			--print(frame_num, bounce_start)
 		end
 
 		bounce_start = bounce_start + num_frames
@@ -164,7 +199,7 @@ function Create()
 		INP_MinAllowed =		0,
 		INP_MaxScale =			100.0,
 		INP_Integer = 			false,
-		INP_DoNotifyChanged = true,
+		INP_DoNotifyChanged = false,
 				})
 
 	InE = self:AddInput("Elasticity", "Elasticity", {
@@ -174,17 +209,36 @@ function Create()
 		INP_MinAllowed =		0,
 		INP_MaxScale =			1.0,
 		INP_Integer = 			false,
+		INP_DoNotifyChanged = false,
+				})
+
+	InUseLaunchSpeed = self:AddInput("Use Launch Speed", "UseLaunchSpeed", {
+		LINKID_DataType = "Number",
+		INPID_InputControl = "CheckboxControl",
+		INP_Integer = true,
+		INP_Default = 1.0,
+		ICD_Width = 0.75,
 		INP_DoNotifyChanged = true,
 				})
 
-	InLaunchSpeed= self:AddInput("Launch Speed", "LaunchSpeed", {
+	InLaunchSpeed = self:AddInput("Launch Speed", "LaunchSpeed", {
 		LINKID_DataType =		"Number",
 		INPID_InputControl =	"SliderControl",
 		INP_Default =			10.0,
 		INP_MinAllowed =		0,
 		INP_MaxScale =			1000.0,
 		INP_Integer = 			false,
-		INP_DoNotifyChanged = true,
+		INP_DoNotifyChanged = false,
+				})
+
+	InDropHeight = self:AddInput("Drop Height", "DropHeight", {
+		LINKID_DataType =		"Number",
+		INPID_InputControl =	"SliderControl",
+		INP_Default =			10.0,
+		INP_MinAllowed =		0,
+		INP_MaxScale =			1000.0,
+		INP_Integer = 			false,
+		INP_DoNotifyChanged = false,
 				})
 
 	InScreenHeight= self:AddInput("Screen Height", "ScreenHeight", {
@@ -194,6 +248,7 @@ function Create()
 		INP_MinAllowed =		0,
 		INP_MaxScale =			1000.0,
 		INP_Integer = 			false,
+		INP_DoNotifyChanged = false,
 				})
 
 	InStartFrame= self:AddInput("Start Frame", "StartFrame", {
@@ -203,6 +258,7 @@ function Create()
 		INP_MinAllowed =		0,
 		INP_MaxScale =			10000.0,
 		INP_Integer = 			true,
+		INP_DoNotifyChanged = false,
 				})
 
 	InPlaySpeed = self:AddInput("Play Speed", "PlaySpeed", {
@@ -213,6 +269,7 @@ function Create()
 		INP_MaxScale =			10.0,
 		INP_Integer = 			false,
 		INP_DoNotifyChanged = true,
+		INP_DoNotifyChanged = false,
 				})
 
 	InY = self:AddInput("Y", "Y", {
@@ -222,6 +279,16 @@ function Create()
 		INP_MinAllowed =		-2.0,
 		INP_MaxScale =			2.0,
 		INP_Integer = 			false,
+		INP_DoNotifyChanged = false,
+				})
+
+	InLaunchFromGround = self:AddInput("Launch From Ground", "LaunchFromGround", {
+		LINKID_DataType = "Number",
+		INPID_InputControl = "CheckboxControl",
+		INP_Integer = true,
+		INP_Default = 1.0,
+		ICD_Width = 0.75,
+		INP_DoNotifyChanged = false,
 				})
 
 	--[[
@@ -238,76 +305,63 @@ function Create()
 		LINKID_DataType = "Number",
 		LINK_Main = 1
 		})
+
+	OutBounceNumber = self:AddOutput("BounceNumber", "BounceNumber", {
+		LINKID_DataType = "Number",
+		LINK_Main = 1
+		})
+
+	OutDistance = self:AddOutput("Distance", "Distance", {
+		LINKID_DataType = "Number",
+		LINK_Main = 1
+		})
 end
 
 
 --//----------------------------------------------
 
---[[
-
-WE TRIED PRECACHING THE ANIMATION DATA, BUT IT SEEMS
-THAT DATA CREATED HERE CANNOT BE ACCESSED BY Process()
-AND, IN ANY CASE, USING A SIMPLE FUNCTION LIKE SIN(X)
-DIDN'T SEEM ANY FASTER THAN OUR IMPLEMENTATION.
-
 function NotifyChanged(inp, param, time)
-	print("Setting bar")
-	InFoo["bar"] = "bar"
-
-	if inp == InG then
-		params["g"] = param.Value
-	end
-	if inp == InE then
-		params["e"] = param.Value 
-	end
-	if inp == InLaunchSpeed then
-		params["c"] = param.Value 
-	end
-	if inp == InPlaySpeed then
-		params["play_speed"] = param.Value 
-	end
-
-	print("--")
-	for k,v in pairs(params) do
-		print(k,v)
-	end
-
-
-	if params["g"] ~= nil and params["e"] ~= nil and params["c"] ~= nil and params["play_speed"] ~= nil then
-		local fps = self.Comp:GetPrefs("Comp.FrameFormat.Rate")
-
-		AnimationData = bounce_build_animation_curve(params["g"], 
-		                                             params["c"], 
-		                                             params["e"],
-		                                             fps,
-		                                             params["play_speed"])
-
-		for k,v in pairs(AnimationData) do
-			print(k,v)
+	if inp == InUseLaunchSpeed then
+		local locked = (param.Value > 0.5)
+		if locked then
+			InLaunchSpeed:SetAttrs({ IC_Visible = true })
+			InDropHeight:SetAttrs({ IC_Visible = false })
+		else
+			InLaunchSpeed:SetAttrs({ IC_Visible = false })
+			InDropHeight:SetAttrs({ IC_Visible = true })
 		end
-		print(AnimationData)
 	end
-end]]
+end
 
 function Process(req) 
 	local g = InG:GetValue(req).Value
+	local use_launch_speed = InUseLaunchSpeed:GetValue(req).Value > 0.5
 	local c = InLaunchSpeed:GetValue(req).Value
+	local drop_height = InDropHeight:GetValue(req).Value
 	local e = InE:GetValue(req).Value
 	local screen_height = InScreenHeight:GetValue(req).Value
 	local fps = self.Comp:GetPrefs("Comp.FrameFormat.Rate")
 	local start_frame = InStartFrame:GetValue(req).Value
 	local play_speed = InPlaySpeed:GetValue(req).Value
 	local Y = InY:GetValue(req).Value -- Vertical position of animation
+	local is_from_ground = InLaunchFromGround:GetValue(req).Value > 0.5
 
+	if use_launch_speed then 
+		drop_height = nil
+	else
+		c = nil
+	end
 
-	local y = bounce_get_height_at_t(g, c, e,
-	                                 screen_height, 
-	                                 fps, 
-	                                 start_frame, 
-	                                 play_speed, 
-	                                 Y, 
-	                                 req.Time) 
+	local data = bounce_get_height_at_t(g, c, drop_height, e,
+	                                    screen_height, 
+	                                    fps, 
+	                                    start_frame, 
+	                                    play_speed, 
+	                                    Y, 
+	                                    is_from_ground,
+	                                    req.Time) 
 
-	OutResult:Set(req, Number(y))
-
+	OutResult:Set(req, Number(data[1]))
+	OutBounceNumber:Set(req, Number(data[2]))
+	OutDistance:Set(req, Number(data[3]))
 end
