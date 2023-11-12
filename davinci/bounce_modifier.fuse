@@ -12,6 +12,46 @@
 version = "v1.00 - 10 NOV 2023"
 
 --[[
+  SQUASH ANIMATION DATA
+
+  This animation is stretched to fit into each bounce after the first one.
+  We could even make this editable in the GUI if we wanted, via a curve
+  control; just like a bevel profile, or similar.
+]]
+-- SQUASH_CURVE_X = {0.0, 0.15, 0.3, 1.0} -- < Fraction through the bounce
+-- SQUASH_CURVE_Y = {0.0, 0.35, 0.0, 0.0} -- < Squash value
+function squash_curve_x(squash_width)
+	return {0.0, squash_width / 2, squash_width, 1.0}
+end
+
+function squash_curve_y(squash_magnitude)
+	return {0.0, squash_magnitude, 0.0, 0.0}
+end
+
+
+
+
+-- Linear interpolation on the above table.
+-- Note no extrapolation, so 't' must be between 0.0 and 1.0.
+function linterp(x, y, t)
+	-- Safety guard to prevent crash if t > 1.0
+	if t > 1.0 then t = 1.0 end   
+
+	local index = 1
+	while x[index] <  t
+	do
+		index = index + 1
+	end
+
+	if index == 1 then
+		return y[index]
+	else
+		return ((x[index] - t)*y[index-1] + (t - x[index-1])*y[index])/(x[index] - x[index - 1])
+	end
+end
+
+
+--[[
      Compute the height of the bounce at given frame
      
      This is not optimal if you want to draw the entire animation curve
@@ -91,7 +131,11 @@ function bounce_get_height_at_t(g,
 	-- Loop subtracting 2c_i/g from 't' until doing so would make 't' negative
 	local i = 0
 	local ci = c
-	local ee = e -- e to the power of the bounce num; useful for 'squash'
+	 -- e to the power of the bounce num; useful for 'squash'
+	 -- We want this to be 1.0 on the second bound, not the first
+	 -- because there is no squash on the first bounce. That's why
+	 -- we initialize to 1/e.
+	local ee = 1/e
 
 	while ((t - 2*ci/g) > 0)
 	do
@@ -110,27 +154,18 @@ function bounce_get_height_at_t(g,
 	-- Height
 	local y = (-0.5 * g * t*t + ci*t) / screen_height + floor_height
 
-	-- We start with the distance from the centre of the bounce, in units of
-	-- the bounce width. Taking the ABS() gives a triangular function with
-	-- peaks at the bounce points. Subtracting 0.3 and applying MAX(0,  )
-	-- gives a function which is zero in the middel of the bounce.
-	-- We decrease the amplitude of the function as the elasticity
-	-- raise to the power of the bounce number; which the bounce number is
-	-- a continuous function of 't'; ie. 2.5 is half way through the second
+	-- We use interpolation to stretch the squash curve accross the
 	-- bounce.
-	--
-	-- This property can be used to animate squashing of the bouncing object
-	local distance = 0.5*t*g/ci - 0.5 
-	local amplitude = squash_magnitude * math.pow(e, t/(2*ci/g)) * ee 
-	local squash 
-
-	if i == 0 and t < ci/g then
-		 -- No squash in the first half of first bounce, because we've
-		 -- not hit the ground yet, so there is no rebound.
-		squash = 1.0  
+	local squash
+	if i == 0 then
+		-- No rebound in the first bounce.
+		squash = 1.0
 	else
-		squash = (1 - amplitude * math.max(0, math.abs(distance) - squash_width))
-	end
+	 	squash = 1.0 - ee * linterp(squash_curve_x(squash_width), 
+	                                  squash_curve_y(squash_magnitude), 
+	                                  -- Fraction through the bounce
+	                                  t / (2*ci/g))
+	 end
 
 	local bounce_num 
 	if frame_num < start_frame then 
@@ -314,9 +349,9 @@ function Create()
 	InSquashMagnitude = self:AddInput("Squash Magnitude", "SquashMagnitude", {
 		LINKID_DataType =		"Number",
 		INPID_InputControl =	"SliderControl",
-		INP_Default =			8.0,
+		INP_Default =			0.35,
 		INP_MinAllowed =		0.0,
-		INP_MaxScale =			20.0,
+		INP_MaxScale =			1.0,
 		INP_Integer = 			false,
 		INP_DoNotifyChanged = false,
 				})
@@ -326,7 +361,7 @@ function Create()
 		INPID_InputControl =	"SliderControl",
 		INP_Default =			0.3,
 		INP_MinAllowed =		0.0,
-		INP_MaxScale =			0.5,
+		INP_MaxScale =			0.1,
 		INP_Integer = 			false,
 		INP_DoNotifyChanged = false,
 				})
