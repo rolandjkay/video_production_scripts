@@ -99,7 +99,7 @@ function bounce_get_height_at_t(g,
 		-- Once the motion is almost completely damped, stay on the ground
 		if (ci < 0.1)
 		then
-			return {floor_height, 0, 0}
+			return {floor_height, 0, 1}
 		end
 	end
 
@@ -109,8 +109,9 @@ function bounce_get_height_at_t(g,
 	-- Distance from the centre of the bounce, in units of the bounce widht;
 	-- the can be useful for timing other animations to sync with the bounce,
 	-- e.g. having the object squash as it hits the floor.
-	-- local distance = (0.5*t*g/ci - 0.5)
-	local distance = t - ci/g
+	local squash = (1 -   math.pow(e, i + t/(2*ci/g)) * math.max(0, math.abs((0.5*t*g/ci - 0.5)) - 0.3))
+	--local squash = 0.5*t*g/ci - 0.5  
+	--local distance = t - ci/g
 
 	local bounce_num 
 	if frame_num < start_frame then 
@@ -119,7 +120,7 @@ function bounce_get_height_at_t(g,
 		bounce_num = i + 1
 	end
 
-	return {y, bounce_num, distance}
+	return {y, bounce_num, squash}
 end
 
 -- Generates the whole animation curve in one go.
@@ -312,6 +313,11 @@ function Create()
 		})
 
 	OutDistance = self:AddOutput("Distance", "Distance", {
+		LINKID_DataType = "Number",
+		LINK_Main = 1
+		})
+
+	OutSquash = self:AddOutput("Squash", "Squash", {
 		LINKID_DataType = "Number",
 		LINK_Main = 1
 		})
