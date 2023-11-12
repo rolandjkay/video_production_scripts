@@ -33,6 +33,8 @@ function bounce_get_height_at_t(g,
 	                            play_speed, 
 	                            floor_height,
 	                            is_from_ground, 
+	                            squash_magnitude, -- 8.0 is a good value
+	                            squash_width,   -- 0.3 is a good value
 	                            frame_num) 
 	--[[
 
@@ -89,11 +91,13 @@ function bounce_get_height_at_t(g,
 	-- Loop subtracting 2c_i/g from 't' until doing so would make 't' negative
 	local i = 0
 	local ci = c
+	local ee = e -- e to the power of the bounce num; useful for 'squash'
 
 	while ((t - 2*ci/g) > 0)
 	do
 		t = t - 2*ci/g
 		ci = ci * e
+		ee = ee * e
 		i = i + 1
 
 		-- Once the motion is almost completely damped, stay on the ground
@@ -106,12 +110,27 @@ function bounce_get_height_at_t(g,
 	-- Height
 	local y = (-0.5 * g * t*t + ci*t) / screen_height + floor_height
 
-	-- Distance from the centre of the bounce, in units of the bounce widht;
-	-- the can be useful for timing other animations to sync with the bounce,
-	-- e.g. having the object squash as it hits the floor.
-	local squash = (1 -   math.pow(e, i + t/(2*ci/g)) * math.max(0, math.abs((0.5*t*g/ci - 0.5)) - 0.3))
-	--local squash = 0.5*t*g/ci - 0.5  
-	--local distance = t - ci/g
+	-- We start with the distance from the centre of the bounce, in units of
+	-- the bounce width. Taking the ABS() gives a triangular function with
+	-- peaks at the bounce points. Subtracting 0.3 and applying MAX(0,  )
+	-- gives a function which is zero in the middel of the bounce.
+	-- We decrease the amplitude of the function as the elasticity
+	-- raise to the power of the bounce number; which the bounce number is
+	-- a continuous function of 't'; ie. 2.5 is half way through the second
+	-- bounce.
+	--
+	-- This property can be used to animate squashing of the bouncing object
+	local distance = 0.5*t*g/ci - 0.5 
+	local amplitude = squash_magnitude * math.pow(e, t/(2*ci/g)) * ee 
+	local squash 
+
+	if i == 0 and t < ci/g then
+		 -- No squash in the first half of first bounce, because we've
+		 -- not hit the ground yet, so there is no rebound.
+		squash = 1.0  
+	else
+		squash = (1 - amplitude * math.max(0, math.abs(distance) - squash_width))
+	end
 
 	local bounce_num 
 	if frame_num < start_frame then 
@@ -292,6 +311,26 @@ function Create()
 		INP_DoNotifyChanged = false,
 				})
 
+	InSquashMagnitude = self:AddInput("Squash Magnitude", "SquashMagnitude", {
+		LINKID_DataType =		"Number",
+		INPID_InputControl =	"SliderControl",
+		INP_Default =			8.0,
+		INP_MinAllowed =		0.0,
+		INP_MaxScale =			20.0,
+		INP_Integer = 			false,
+		INP_DoNotifyChanged = false,
+				})
+
+	InSquashWidth = self:AddInput("Squash Width", "SquashWidth", {
+		LINKID_DataType =		"Number",
+		INPID_InputControl =	"SliderControl",
+		INP_Default =			0.3,
+		INP_MinAllowed =		0.0,
+		INP_MaxScale =			0.5,
+		INP_Integer = 			false,
+		INP_DoNotifyChanged = false,
+				})
+
 	--[[
 	  IMPROVMENT: It would be good to publish a second output which represents
 	              the 'squash factor' needed to simulate th eanimated object
@@ -308,11 +347,6 @@ function Create()
 		})
 
 	OutBounceNumber = self:AddOutput("BounceNumber", "BounceNumber", {
-		LINKID_DataType = "Number",
-		LINK_Main = 1
-		})
-
-	OutDistance = self:AddOutput("Distance", "Distance", {
 		LINKID_DataType = "Number",
 		LINK_Main = 1
 		})
@@ -350,6 +384,8 @@ function Process(req)
 	local start_frame = InStartFrame:GetValue(req).Value
 	local play_speed = InPlaySpeed:GetValue(req).Value
 	local Y = InY:GetValue(req).Value -- Vertical position of animation
+	local squash_magnitude = InSquashMagnitude:GetValue(req).Value
+	local squash_width = InSquashWidth:GetValue(req).Value
 	local is_from_ground = InLaunchFromGround:GetValue(req).Value > 0.5
 
 	if use_launch_speed then 
@@ -365,9 +401,11 @@ function Process(req)
 	                                    play_speed, 
 	                                    Y, 
 	                                    is_from_ground,
+	                                    squash_magnitude,
+	                                    squash_width,
 	                                    req.Time) 
 
 	OutResult:Set(req, Number(data[1]))
 	OutBounceNumber:Set(req, Number(data[2]))
-	OutDistance:Set(req, Number(data[3]))
+	OutSquash:Set(req, Number(data[3]))
 end
